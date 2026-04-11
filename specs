@@ -1,0 +1,2052 @@
+# UNS Specification: Variable Naming, Glossary, and Documentation Standards
+
+This document establishes the naming conventions, documentation standards, and the authoritative glossary for all variable names used across the UNS specification suite. Every schema variable defined anywhere in the project must appear in this glossary. Once a variable name is assigned, it is permanent and must be used consistently across all documents. This document is the single source of truth for variable definitions and the enforcement mechanism for naming consistency.
+
+---
+
+## 1. Variable Naming Conventions
+
+All variable names in the UNS specification use `snake_case` (lowercase with underscores). This applies to JSON field names, API parameter names, error codes, and schema property names. Examples: `attestation_level_required`, `oob_method_used`, `service_account_id`, `nonce`.
+
+**Immutability Rule:** Once a variable name is assigned and appears in any specification document or schema definition, it is permanent. It must not be renamed, aliased, or replaced. If a variable's semantics need to change, a new variable must be created and the old one deprecated with a clear migration note.
+
+**Compound Names:** Variable names should be descriptive and self-documenting. Include the unit of measurement where applicable (e.g., `_usd`, `_minutes`, `_bytes`). Use the full word rather than abbreviations except for universally understood terms (`id`, `url`, `oob`, `mcp`, `totp`, `sms`).
+
+**Enum Values:** Enumerated values use `UPPER_SNAKE_CASE`. Examples: `UNS_ATTESTATION_LEVEL_MISMATCH`, `UNS_SIGNATURE_INVALID`, `UNS_NONCE_EXPIRED`. Boolean fields use a descriptive name that reads naturally as a true/false statement, such as `enabled` or `is_active`.
+
+**Namespace Prefixes:** Variables scoped to a specific component should use a descriptive prefix where necessary to avoid collision. For example, `service_name`, `service_description`, and `service_logo_url` are all scoped to the service identity metadata. Variables that appear in the receipt use both a service-side prefix (`attestation_level_required`) and a guardian-side prefix (`attestation_level_provided`) to distinguish which party contributed the value.
+
+---
+
+### 1.1 Cognitive Naming Framework for Developers
+
+The UNS specification uses a systematic naming pattern that allows developers to predict variable names and understand their purpose without consulting the glossary. This section formalizes that pattern.
+
+**The Framework**
+
+Every variable name follows a structure: **[domain_prefix] + [concept_stem] + [qualifier]**
+
+1. **Domain Prefixes** (optional, but recommended for clarity):
+   - `service_*` — Scoped to service metadata (e.g., `service_name`, `service_account_id`)
+   - `gateway_*` — Gateway-owned or Gateway-scoped variables (e.g., `gateway_id`, `gateway_sig`)
+   - `guardian_*` — Guardian-owned or Guardian-specific variables (e.g., `guardian_id`, `guardian_sig`)
+   - `device_*` — Device binding and OOB device variables (e.g., `device_id`, `device_type`)
+   - `rule_*` — Policy rule metadata and control (e.g., `rule_id`, `rule_type`, `rule_set_version`)
+   - `oob_*` — Out-of-band authentication specifics (e.g., `oob_method_used`, `oob_auth_methods`)
+   - `attestation_*` — Attestation level and proof variables (e.g., `attestation_level_required`, `attestation_level_provided`)
+   - `approval_*` — Approval decisions and audit trail (e.g., `approval_source`, `approval_rule_description`)
+   - `manifest_*` — Service manifest caching and versioning (e.g., `manifest_json`, `manifest_version`)
+   - No prefix for protocol-core or universally scoped variables: `nonce`, `id`, `status`, `action`
+
+2. **Concept Stems** (the core meaning):
+   - `_level` — Attestation or authentication level (e.g., `attestation_level_required`, `minimum_attestation_level`)
+   - `_method` — OOB authentication method (e.g., `oob_method_used`)
+   - `_methods` — Array of OOB methods (e.g., `oob_auth_methods`, `supported_oob_methods`)
+   - `_id` — Unique identifier (e.g., `node_id`, `service_id`, `rule_id`, `receipt_id`)
+   - `_name` — Human-readable display name (e.g., `service_name`, `gateway_name`, `device_name`)
+   - `_url` or `_endpoint` — Network endpoint (e.g., `endpoint_url`, `service_logo_url`, `gateway_endpoint`)
+   - `_at` — Point-in-time timestamp (e.g., `created_at`, `issued_at`, `revoked_at`, `computed_at`)
+   - `_since` — Duration elapsed (e.g., `time_since_last_auth`)
+   - `_in` — Duration or time unit (e.g., `expires_in`, `grace_period_minutes`)
+   - `_key` — Cryptographic key (e.g., `public_key`, `signing_key_version`, `root_public_key`)
+   - `_sig` — Cryptographic signature (e.g., `gateway_sig`, `guardian_sig`, `service_gateway_sig`)
+   - `_hash` — Cryptographic hash (e.g., `merkle_leaf_hash`, `merkle_root`)
+   - `_proof` — Cryptographic or attestation proof (e.g., `oob_proof`)
+   - `_secret` — Sensitive data (e.g., `encrypted_secret`)
+   - `_count` or `_number` — Integer counters (e.g., `leaf_count`, `registry_version`)
+   - `_version` — Schema version or iteration counter (e.g., `manifest_version`, `rule_set_version`, `signing_key_version`)
+   - `_status` or `_state` — Current operational state (e.g., `status`, `registration_status`)
+   - `_json` — JSON-serialized object stored as string (e.g., `manifest_json`, `receipt_json`, `conditions`)
+
+3. **Qualifiers** (optional refinements):
+   - `_required` — Input requirement or precondition (e.g., `attestation_level_required`, `minimum_attestation_level`)
+   - `_provided` — Output supplied or fulfilled (e.g., `attestation_level_provided`)
+   - `_override` — User-configured override or per-request override (e.g., `attestation_level_override`, `dynamic_override`)
+   - `_floor` or `_minimum` — Lower bound constraint (e.g., `minimum_attestation_level`, `default_floor`)
+   - `_threshold` — Numeric limit for comparison (e.g., `amount_threshold`, `spending_threshold`)
+   - `_supported` — Capability or compatibility declaration (e.g., `supported_oob_methods`, `supported_jurisdictions`)
+   - `_active` — Boolean flag indicating current state (e.g., `is_active`, `enabled`)
+
+**Input vs. Output Pattern:**
+- Variables that represent requirements or inputs use `_required` or no suffix (e.g., `attestation_level_required`, `minimum_attestation_level`)
+- Variables that represent fulfilled or output values use `_provided` (e.g., `attestation_level_provided`)
+- This bilateral pattern appears in critical handshake variables and enables bilateral verification
+
+**Guardian vs. Gateway Parallelism:**
+- Both Guardian and Gateway have policy engines and use parallel variable names:
+  - Guardian: `oob_auth_methods` (what the Guardian can do)
+  - Gateway: `supported_oob_methods` (what the service/gateway supports)
+  - These are semantically distinct despite naming similarity — the context (which spec section) disambiguates them
+
+**Timestamps: Universal Suffixes**
+- `created_at` — Initial record creation time
+- `issued_at` — When a signature was applied or token was issued
+- `expires_at` — Absolute expiration deadline
+- `registered_at` — When onboarding/registration completed
+- `last_updated` — Last modification time
+- `revoked_at` — When revocation was initiated
+- `computed_at` — When a derived value (e.g., Merkle root) was computed
+- These are used consistently across all node types and D1 tables
+
+**Deprecation and Migration:**
+- When a variable name is deprecated (due to semantic change), the old name is listed in the Glossary with a note pointing to its replacement
+- The immutability rule applies: old names remain valid for backward compatibility during transition windows
+- Code may reference both old and new names during migration but must eventually converge on the canonical name
+
+**Applying the Framework:**
+
+To predict a variable name for a new concept:
+1. Identify which domain it belongs to (service, gateway, guardian, device, rule, oob, attestation, approval, manifest, or protocol-core)
+2. Choose an appropriate prefix from the list above (omit if protocol-core)
+3. Select a concept stem that describes what it measures or contains
+4. Add qualifiers (`_required`, `_provided`, `_supported`, etc.) if needed to disambiguate similar variables
+5. Test against the glossary: if a variable already exists with that name, use it; if not, verify with the team before introducing a new name
+
+**Examples:**
+- `service_account_id` → domain: `service`, stem: `_id`, purpose: service's own hashed account identifier for a user
+- `guardian_registration_id` → domain: `guardian`, stem: `registration` + `_id`, purpose: Guardian's internal record of a user-service relationship
+- `attestation_level_required` → domain: `attestation`, stem: `_level`, qualifier: `_required`, purpose: input requirement from service
+- `device_signature` → domain: `device` (implicit in OOB methods), stem: method name (literal)
+- `approval_source` → domain: `approval`, stem: (special case enum), purpose: audit trail of decision origin
+- `rule_set_version` → domain: `rule`, stem: `_version`, qualifier: `_set`, purpose: track policy rule set iteration
+- `manifest_json` → domain: `manifest`, stem: `_json`, purpose: full service metadata blob stored as string
+
+---
+
+### 1.2 Timestamp Format Specification
+
+All timestamps in UNS protocol messages, receipts, database records, and audit logs MUST use ISO 8601 format with UTC timezone designator. Millisecond precision is required for protocol-critical fields to ensure deterministic serialization and cryptographic signature verification.
+
+**Normative Format:**
+
+```
+YYYY-MM-DDTHH:MM:SS.sssZ
+```
+
+**Requirements:**
+- **Date/Time:** ISO 8601 date and time format (no deviations)
+- **Timezone:** Always UTC, denoted by trailing `Z` (never use `+00:00` or other UTC offsets)
+- **Millisecond Precision:** Exactly three decimal places (e.g., `2026-03-19T14:05:00.000Z`, `2026-03-19T14:05:00.123Z`)
+- **No Timezone Offsets:** Omit `+HH:MM` or `-HH:MM` offsets; all times are UTC
+- **Trailing Z is Mandatory:** Every timestamp must end with the `Z` designator
+
+**Examples:**
+- `2026-03-19T14:05:00.000Z` — Precise second boundary (3 zeros for milliseconds)
+- `2026-03-19T14:05:00.456Z` — Mid-millisecond timestamp
+- `2026-03-18T23:59:59.999Z` — End of day
+
+**Protocol Fields Requiring Millisecond Precision:**
+- `issued_at` — Timestamp when a receipt or manifest is generated
+- `manifest_issued_at` — Timestamp when a service manifest is issued
+- `created_at` — Timestamp of receipt creation (in D1 storage, use Unix milliseconds)
+- `registered_at` — Timestamp of registration/device binding completion
+- `revoked_at` — Timestamp when revocation occurred
+- `computed_at` — Timestamp of derived value computation (e.g., Merkle root refresh)
+
+**Implementation Guidance:**
+- **Generating Timestamps:** Use `new Date().toISOString()` (JavaScript) or equivalent in your language. This automatically produces the correct format with milliseconds and `Z` suffix.
+- **Parsing Timestamps:** Implementations MUST accept timestamps with or without milliseconds for backward compatibility, but MUST emit timestamps with milliseconds when generating new messages. Parsers should normalize all timestamps to millisecond precision internally.
+- **Signature Serialization:** When timestamps appear in canonical serialization for signatures, they MUST include milliseconds. Omitting milliseconds changes the serialized form and invalidates signatures.
+- **Database Storage:** Unix milliseconds (integer) are acceptable for D1 storage; convert to ISO 8601 with milliseconds when serializing to JSON for the wire protocol.
+
+**Rationale:** Millisecond precision prevents signature verification collisions and ensures deterministic ordering of concurrent operations in distributed systems. Different implementations or languages may produce slightly different serializations (e.g., `2026-03-19T14:05:00Z` vs `2026-03-19T14:05:00.000Z`), causing signature mismatches. Enforcing milliseconds creates a canonical form.
+
+---
+
+### 1.3 Forward Compatibility: Extensions Object
+
+UNS schemas support forward compatibility through an optional `extensions` object present at the top level of all JSON structures (service manifests, receipts, attestation rules, challenge tokens, etc.). This allows future protocol enhancements and vendor-specific extensions without breaking older implementations.
+
+**Extensions Policy:**
+
+1. **All JSON schemas MUST include an optional `extensions` field** at the top level. Type: `object`. `additionalProperties: true`. This is a reserved container for non-protocol data.
+
+2. **Parsers MUST ignore unknown keys inside `extensions` (fail-open).** Implementations encounter extensions they don't recognize — they simply skip them. This ensures old parsers can process messages from newer implementations without crashing or rejecting valid data.
+
+3. **Extensions are NOT signed.** The `extensions` object is excluded from canonical serialization for all cryptographic signatures (manifest signatures, challenge signatures, response signatures). Extensions cannot modify the cryptographic integrity of any signed structure. If a field is part of the UNS protocol and must be signed, it cannot be an extension — it must be a top-level field.
+
+4. **Naming Convention:**
+   - **Vendor/custom extensions:** Reverse domain prefix — `com.example.my_feature`, `org.acme.analytics_token`, etc. This prevents collisions between independent vendors and future UNS protocol additions.
+   - **Future UNS protocol extensions:** No prefix — `future_feature_name`, `enhanced_attestation`, etc. The UNS governance body reserves unprefixed names.
+   - **Mixing:** A single `extensions` object may contain both vendor and future UNS extensions; the naming convention keeps them distinct.
+
+5. **Core fields are never moved to extensions.** If a field is part of the UNS protocol (required for handshakes, policy evaluation, audits, or cryptographic verification), it must be a top-level field in the main schema, not an extension. Extensions are for supplementary, non-normative data: telemetry, branding, service-specific hints, or future protocol features that do not yet have consensus.
+
+**Example:**
+
+```json
+{
+  "gateway_id": "did:uns:gateway:acme",
+  "service_name": "Acme Banking",
+  "minimum_attestation_level": "device_signature",
+  "supported_oob_methods": ["device_signature", "biometric"],
+  "extensions": {
+    "com.acme.brand_theme": "dark_mode",
+    "com.acme.analytics_token": "abc123def456",
+    "future_metadata_tags": ["banking", "regulated"]
+  }
+}
+```
+
+The parser ignores all keys in `extensions` — whether they are vendor-prefixed or future UNS extensions it doesn't understand.
+
+---
+
+## 2. Documentation Standards
+
+**Hotlinking Rule:** When a variable name appears in any narrative document ([architecture.md](architecture.md), [protocol.md](protocol.md), [intent.md](intent.md), or any other prose document), it should be formatted as a code reference (backtick-wrapped) and linked to its glossary entry in this document. This allows any planner, developer, or agent reading the documentation to immediately reference the authoritative definition.
+
+**Inline Schema Definitions:** JSON Schema documents use the `"description"` field on every property as the inline documentation mechanism. The description string serves as the co-located definition so that a reader does not need to cross-reference multiple documents to understand a schema. This replaces the earlier collapsible-div approach and is the canonical way to document schema variables inline.
+
+**Glossary Inclusion Rule:** Every variable name that appears in any schema definition anywhere in the project must be added to the Glossary (section 4 of this document). No variable may exist in a schema without a corresponding glossary entry. The glossary entry must include the variable name, type, description, which schema(s) it appears in, and whether it is required or optional.
+
+**Consistency Enforcement:** During specification review, any variable name that does not match the naming conventions in section 1 or is missing from the glossary is a blocking issue that must be resolved before the specification is considered complete.
+
+---
+
+## 3. Enum Value Registry
+
+### OOB Authentication Methods
+
+Hierarchical, weakest to strongest:
+
+| Value | Description |
+|---|---|
+| `session_only` | No OOB required. Guardian signs based on existing agent session. |
+| `email_confirmation` | Confirmation sent to registered email. |
+| `sms_otp` | One-time password sent via SMS. |
+| `totp` | Time-based one-time password (e.g., authenticator app). |
+| `device_signature` | Cryptographic signature from user's registered device. Assumed default OOB method. |
+| `biometric` | Biometric verification on user's device. |
+| `hardware_key` | Purpose-built security hardware. |
+
+Custom methods are permitted and should follow `UPPER_SNAKE_CASE`. The hierarchy is extensible; services and guardians declare where custom methods sit in the ordering.
+
+### Protocol Error Codes
+
+| Code | Description |
+|---|---|
+| `UNS_ATTESTATION_LEVEL_MISMATCH` | Guardian's provided attestation level does not meet the level required by the Gateway. See [`UNS_ATTESTATION_LEVEL_MISMATCH`](../specs/error_code_catalog_and_response_specification.md) in the error catalog. |
+| `UNS_SIGNATURE_INVALID` | A signature in the chain failed verification. |
+| `UNS_NONCE_EXPIRED` | Challenge nonce expired before handshake completed. |
+| `UNS_NONCE_REPLAY` | Previously used nonce detected; potential replay attack. |
+| `UNS_SERVICE_NOT_REGISTERED` | Agent attempted handshake for unregistered service. |
+| `UNS_GUARDIAN_UNREACHABLE` | Gateway could not contact Guardian. |
+| `UNS_HANDSHAKE_TIMEOUT` | User did not respond to OOB authentication within timeout window. |
+| `UNS_USER_DECLINED` | User explicitly denied OOB authentication request. |
+| `UNS_OOB_FAILED` | Out-of-band authentication delivery or completion failed. See [`UNS_OOB_FAILED`](../specs/error_code_catalog_and_response_specification.md) in the error catalog. |
+| `UNS_MANIFEST_CHANGED` | Service manifest updated since Guardian last cached it. |
+| `UNS_MANIFEST_SIGNATURE_INVALID` | Service manifest signature verification failed. See [`UNS_MANIFEST_SIGNATURE_INVALID`](../specs/error_code_catalog_and_response_specification.md) in the error catalog. |
+| `UNS_SERVICE_UNAVAILABLE` | Gateway temporarily unable to process requests. |
+
+### Coordination Node Status
+
+| Value | Description |
+|---|---|
+| `active` | Gateway/Guardian is operational and accepting requests. |
+| `maintenance` | Temporarily unavailable for scheduled maintenance. |
+| `deprecated` | Scheduled for removal; clients should migrate. |
+
+### Deprecated Enum Values
+
+The following values appeared in earlier specification drafts and must not be used in new specifications. They are listed here for migration reference only.
+
+`SINGLE_LOCK`, `DOUBLE_LOCK`, `TRIPLE_LOCK`, `QUAD_LOCK` — Replaced by per-request attestation levels. Every UNS authentication is trilateral; the "lock" tier model has been eliminated.
+
+`REQUESTED`, `PENDING`, `ACTIVE`, `CONSUMED`, `EXPIRED`, `REVOKED` — Token states from a pre-issued token model. Replaced by the challenge-response nonce model where the token is progressively enriched during the handshake, not pre-issued and state-tracked.
+
+`ESCALATION_REQUIRED`, `RATE_LIMIT_EXCEEDED`, `SPENDING_LIMIT_EXCEEDED`, `TOKEN_INVALID`, `TOKEN_EXPIRED`, `TOKEN_REVOKED` — Replaced by the updated protocol error codes above.
+
+---
+
+## 4. Variable Glossary
+
+The authoritative glossary of all variable names defined in the UNS specification. Organized by domain. Each variable entry collapses — click to expand for full definition, source files, and constraints.
+
+**Reading this glossary:** Each variable shows its name, type, and one-line summary. Expand any entry for the full definition including which spec files define it, whether it is required or optional, and any cross-references to related variables.
+
+**Maintenance:** This glossary is checked by a scheduled job that scans all spec files for schema variables not yet listed here. See section 6 for the automated maintenance process.
+
+---
+
+### 4.1 Protocol-Level Variables
+
+These variables appear in the trilateral handshake flow, challenge tokens, and signed payloads. They are the core vocabulary of the UNS protocol.
+
+<details>
+<summary><code>nonce</code> — string — Unique, time-limited cryptographic challenge for replay protection.</summary>
+
+**Required.** A 32-byte hex value (64 characters) generated per-handshake. Provides replay protection; each handshake is unique and time-bound. Consumed on use; must never be reused. Default TTL is 300–600 seconds (spec says "should"; see adversarial review S-MIN-4 for hardening recommendation).
+
+**Sources:** [receipt_format_and_assembly_specification.md](../specs/receipt_format_and_assembly_specification.md), [cryptographic_operations_specification.md](../specs/cryptographic_operations_specification.md), [gateway_infrastructure.md](../specs/gateway_infrastructure.md) (KV nonce tracking), [uns_handshake_sequence_and_failure_points.md](../specs/uns_handshake_sequence_and_failure_points.md)
+
+**Open issue:** Nonce generation ownership is disputed across documents (see adversarial review P-CRIT-1). Must be resolved before Phase 1.
+</details>
+
+<details>
+<summary><code>nonce_consumed_at</code> — ISO 8601 timestamp — When the nonce was atomically consumed by the Gateway.</summary>
+
+**Optional.** Recorded at the moment the Gateway successfully invokes the atomic delete operation on the KV nonce key. Used for forensic auditing and debugging nonce replay scenarios. Not part of the signed protocol; recorded only in Gateway internal logs.
+
+**Sources:** [gateway_infrastructure.md](../specs/gateway_infrastructure.md) (section 4.4, atomic nonce consumption)
+
+**Related:** `nonce`, `created_at`
+</details>
+
+<details>
+<summary><code>attestation_level_required</code> — string — Attestation level the service demands for this request.</summary>
+
+**Required.** Embedded by the Gateway in the challenge token. Expressed as an OOB method name from the hierarchy (e.g., `session_only`, `device_signature`). Determined per-request by the Gateway's policy evaluation engine based on registered service rules or dynamic overrides. Never falls below `minimum_attestation_level`.
+
+**Sources:** [gateway_policy_evaluation_engine.md](../specs/gateway_policy_evaluation_engine.md), [receipt_format_and_assembly_specification.md](../specs/receipt_format_and_assembly_specification.md), [guardian_policy_evaluation_engine.md](../specs/guardian_policy_evaluation_engine.md), [gateway_infrastructure.md](../specs/gateway_infrastructure.md) (D1 service_rules, receipts)
+
+**Related:** `attestation_level_provided`, `minimum_attestation_level`, `applicable_rule`
+</details>
+
+<details>
+<summary><code>attestation_level_provided</code> — string — Attestation level the Guardian actually collected.</summary>
+
+**Required.** Embedded by the Guardian when signing the response token. Expressed as an OOB method name. Must meet or exceed `attestation_level_required` for the handshake to succeed. If insufficient, the Gateway returns `UNS_ATTESTATION_LEVEL_MISMATCH`.
+
+**Sources:** [guardian_policy_evaluation_engine.md](../specs/guardian_policy_evaluation_engine.md), [receipt_format_and_assembly_specification.md](../specs/receipt_format_and_assembly_specification.md), [gateway_infrastructure.md](../specs/gateway_infrastructure.md) (D1 receipts)
+
+**Related:** `attestation_level_required`, `oob_method_used`
+</details>
+
+<details>
+<summary><code>oob_method_used</code> — string — The specific OOB method performed during the handshake.</summary>
+
+**Required.** The method the Guardian used to satisfy the attestation requirement (e.g., `device_signature`, `biometric`, `totp`), or `none` if `session_only`. Embedded inside the Guardian's signed payload. Neither Service nor Gateway possesses the user's public key — they trust the Guardian's assertion.
+
+**Sources:** [guardian_role.md](../specs/guardian_role.md), [receipt_format_and_assembly_specification.md](../specs/receipt_format_and_assembly_specification.md), [guardian_infrastructure.md](../specs/guardian_infrastructure.md) (D1 receipts), [gateway_infrastructure.md](../specs/gateway_infrastructure.md) (D1 receipts)
+
+**Related:** `oob_auth_methods`, `supported_oob_methods`, `attestation_level_provided`
+</details>
+
+<details>
+<summary><code>applicable_rule</code> — string (JSON) — Which service rule produced the attestation requirement.</summary>
+
+**Required in receipt.** JSON description of the rule that generated `attestation_level_required` for this request. Preserves auditability — any receipt can be traced back to the policy decision that triggered it. May describe a registered rule, dynamic override, or default floor.
+
+**Sources:** [gateway_policy_evaluation_engine.md](../specs/gateway_policy_evaluation_engine.md), [gateway_infrastructure.md](../specs/gateway_infrastructure.md) (D1 receipts), [guardian_infrastructure.md](../specs/guardian_infrastructure.md) (D1 receipts)
+
+**Related:** `attestation_level_required`, `rule_source`, `rule_type`
+</details>
+
+<details>
+<summary><code>rule_source</code> — string — Origin of the attestation requirement decision.</summary>
+
+**Required in audit log.** One of: `registered_rule`, `dynamic_override`, or `default_floor`. Distinguishes whether the `attestation_level_required` came from a pre-registered service rule, a per-request override from the service, or the `minimum_attestation_level` floor.
+
+**Sources:** [gateway_policy_evaluation_engine.md](../specs/gateway_policy_evaluation_engine.md)
+
+**Related:** `applicable_rule`, `attestation_level_required`
+</details>
+
+<details>
+<summary><code>issued_at</code> — ISO 8601 timestamp — When the Guardian signed the token.</summary>
+
+**Required.** UTC timestamp marking when the Guardian's signature was applied, completing the trilateral handshake. Used for receipt ordering, expiration calculations, and audit trails.
+
+**Sources:** [receipt_format_and_assembly_specification.md](../specs/receipt_format_and_assembly_specification.md), [guardian_role.md](../specs/guardian_role.md), [guardian_infrastructure.md](../specs/guardian_infrastructure.md) (D1 receipts)
+</details>
+
+<details>
+<summary><code>agent_id</code> — string — Identifier for the agent initiating the handshake.</summary>
+
+**Required in challenge.** Identifies which agent is requesting access. Appears in challenge payloads and audit logs. The agent has a keypair from onboarding but does not sign the authentication token — agent keypair role is reserved for future specification.
+
+**Sources:** [cryptographic_operations_specification.md](../specs/cryptographic_operations_specification.md), [uns_handshake_sequence_and_failure_points.md](../specs/uns_handshake_sequence_and_failure_points.md)
+
+**Open issue:** Agent binding strength is underspecified (see adversarial review S-MAJ-7).
+</details>
+
+<details>
+<summary><code>action</code> — string — The specific service action or feature being requested.</summary>
+
+**Context-dependent.** The feature, operation, or resource the agent is requesting access to. Used by the Gateway's policy engine to match against service rules and determine `attestation_level_required`. Service-defined vocabulary; not standardized by UNS.
+
+**Sources:** [gateway_policy_evaluation_engine.md](../specs/gateway_policy_evaluation_engine.md), [cryptographic_operations_specification.md](../specs/cryptographic_operations_specification.md)
+
+**Related:** `rule_type`, `attestation_level_required`
+</details>
+
+<details>
+<summary><code>extensions</code> — object — Optional forward-compatibility container for non-protocol extensions.</summary>
+
+**Optional.** A top-level object present in all UNS JSON schemas (service manifests, receipts, attestation rules, challenge tokens, etc.). Contains vendor-specific or future protocol extensions as key-value pairs. Excluded from canonical serialization (not signed).
+
+**Parser Behavior:** Implementations MUST ignore unknown keys inside `extensions` (fail-open). Encountering an extension the parser doesn't recognize must not cause rejection or error — simply skip it. This ensures old implementations can process messages from newer implementations.
+
+**Naming Convention:**
+- Vendor/custom extensions: reverse domain prefix — `com.example.feature`, `org.acme.analytics`, etc.
+- Future UNS protocol extensions: no prefix — `future_feature_name`, `enhanced_metadata`, etc.
+- The naming convention prevents collisions between vendor extensions and future protocol additions.
+
+**Signature Treatment:** Extensions are excluded from all cryptographic signature computations. If a field must be signed (part of protocol integrity), it cannot be an extension — it must be a top-level schema field.
+
+**Sources:** [specification.md](../docs/specification.md) section 1.4 (Forward Compatibility Policy), [mcp_tool_definitions.md](../specs/mcp_tool_definitions.md) (service manifest), [receipt_format_and_assembly_specification.md](../specs/receipt_format_and_assembly_specification.md) (receipt), [attestation_rule_schema.md](../specs/attestation_rule_schema.md) (service and Guardian rules), [guardian_mcp_tool_definitions.md](../specs/guardian_mcp_tool_definitions.md) (challenge token)
+
+**Related:** Forward compatibility policy (specification.md 1.4)
+</details>
+
+---
+
+### 4.2 Node Identity Variables
+
+Shared across all three node types (Guardian, Gateway, Coordination Node). These appear in node registration, the Coordination Node registry, and challenge/receipt payloads.
+
+<details>
+<summary><code>node_id</code> — string — Unique DID-format identifier for any UNS node.</summary>
+
+**Required.** Format: `did:uns:{role}:{name}` (e.g., `did:uns:gateway:acme`, `did:uns:guardian:alice`). Used in Coordination Node registry lookups, challenge tokens, and receipt payloads. Immutable once registered.
+
+**Sources:** [coordination_node_data_model.md](../specs/coordination_node_data_model.md), [coordination_node_initial_api_specification.md](../specs/coordination_node_initial_api_specification.md), [cryptographic_operations_specification.md](../specs/cryptographic_operations_specification.md)
+</details>
+
+<details>
+<summary><code>gateway_id</code> — string — Identifier of a specific Gateway.</summary>
+
+**Required.** DID-format identifier (e.g., `did:uns:gateway:acme`). Included by the Gateway in the challenge token and appears in the receipt. Also used as a lookup key in the Coordination Node registry.
+
+**Sources:** [gateway_role.md](../specs/gateway_role.md), [gateway_infrastructure.md](../specs/gateway_infrastructure.md) (D1 receipts, services), [receipt_format_and_assembly_specification.md](../specs/receipt_format_and_assembly_specification.md), [mcp_tool_definitions.md](../specs/mcp_tool_definitions.md)
+</details>
+
+<details>
+<summary><code>guardian_id</code> — string — Identifier of a specific Guardian.</summary>
+
+**Required.** DID-format identifier (e.g., `did:uns:guardian:alice`). Registered with the Coordination Node at onboarding. Appears in receipt payloads and is used for Guardian discovery and key verification.
+
+**Sources:** [guardian_role.md](../specs/guardian_role.md), [guardian_infrastructure.md](../specs/guardian_infrastructure.md) (D1 receipts), [gateway_infrastructure.md](../specs/gateway_infrastructure.md) (D1 receipts), [coordination_node_data_model.md](../specs/coordination_node_data_model.md)
+
+**Note:** Was missing from the previous glossary (adversarial review T-CRIT-1).
+</details>
+
+<details>
+<summary><code>public_key</code> — string — Institutional signing key for a Gateway or Guardian.</summary>
+
+**Required.** Hex-encoded compressed P-256 public key (33 bytes). Registered with the Coordination Node at onboarding. Used for signature verification of challenge tokens and receipts. **Privacy constraint:** This variable applies exclusively to Gateway and Guardian institutional keys. User and agent public keys must never appear in any shared data structure, token, or receipt (see [protocol.md](protocol.md) section 9).
+
+**Sources:** [coordination_node_data_model.md](../specs/coordination_node_data_model.md), [guardian_role.md](../specs/guardian_role.md), [gateway_role.md](../specs/gateway_role.md), [cryptographic_operations_specification.md](../specs/cryptographic_operations_specification.md)
+</details>
+
+<details>
+<summary><code>endpoint_url</code> — string — HTTPS URL where a node can be reached.</summary>
+
+**Required.** The API endpoint for a Gateway or Guardian. Used by agents, other nodes, and the Coordination Node for routing. For Guardians, this is the base URL serving both MCP (`/mcp`) and REST (`/api/*`) surfaces.
+
+**Sources:** [coordination_node_data_model.md](../specs/coordination_node_data_model.md), [guardian_role.md](../specs/guardian_role.md), [gateway_role.md](../specs/gateway_role.md), [guardian_infrastructure.md](../specs/guardian_infrastructure.md), [device_binding_and_onboarding_ceremony.md](../docs/device_binding_and_onboarding_ceremony.md)
+
+**Note:** Was missing from the previous glossary (adversarial review T-CRIT-2).
+</details>
+
+<details>
+<summary><code>status</code> — string — Operational status of a registered node.</summary>
+
+**Required.** One of: `active`, `maintenance`, `deprecated`. See Enum Value Registry (section 3) for definitions. Stored in Coordination Node registry and used for routing decisions.
+
+**Sources:** [coordination_node_data_model.md](../specs/coordination_node_data_model.md), [guardian_role.md](../specs/guardian_role.md), [gateway_role.md](../specs/gateway_role.md)
+</details>
+
+<details>
+<summary><code>jurisdictions</code> — array of strings — Legal jurisdictions where a node operates.</summary>
+
+**Optional.** ISO 3166-1 alpha-2 country codes. Used for regulatory compliance and user/service routing. Distinct from `supported_jurisdictions` (service-side, in manifest).
+
+**Sources:** [coordination_node_data_model.md](../specs/coordination_node_data_model.md), [guardian_role.md](../specs/guardian_role.md), [gateway_role.md](../specs/gateway_role.md)
+</details>
+
+<details>
+<summary><code>contact_info</code> — object — Administrative contact for a node operator.</summary>
+
+**Optional.** Implementation-defined structure containing administrative contact details. Used for governance communications and incident response.
+
+**Sources:** [guardian_role.md](../specs/guardian_role.md), [gateway_role.md](../specs/gateway_role.md)
+</details>
+
+---
+
+### 4.3 Service Identity Metadata (`get_service_manifest` response)
+
+Variables published in a service's manifest, retrieved via the Gateway's `get_service_manifest` MCP tool. These describe a service to Guardians and agents.
+
+<details>
+<summary><code>service_name</code> — string — Human-readable display name of the service.</summary>
+
+**Required.** Used in Guardian UIs, agent displays, and OOB notifications to identify which service is requesting authentication.
+
+**Sources:** [mcp_tool_definitions.md](../specs/mcp_tool_definitions.md), [gateway_infrastructure.md](../specs/gateway_infrastructure.md) (D1 services), [guardian_infrastructure.md](../specs/guardian_infrastructure.md) (D1 service_accounts)
+</details>
+
+<details>
+<summary><code>service_description</code> — string — Brief description of service purpose.</summary>
+
+**Required.** Human-readable text describing what the service does. Shown to users during registration and OOB prompts.
+
+**Sources:** [mcp_tool_definitions.md](../specs/mcp_tool_definitions.md), [gateway_infrastructure.md](../specs/gateway_infrastructure.md) (D1 services)
+</details>
+
+<details>
+<summary><code>service_logo_url</code> — string — URL to service logo image.</summary>
+
+**Optional.** Used in Guardian UIs and OOB notifications for visual identification.
+
+**Sources:** [mcp_tool_definitions.md](../specs/mcp_tool_definitions.md)
+</details>
+
+<details>
+<summary><code>terms_of_service_url</code> — string — URL to terms of service document.</summary>
+
+**Optional.** Presented to users during service account registration.
+
+**Sources:** [mcp_tool_definitions.md](../specs/mcp_tool_definitions.md)
+</details>
+
+<details>
+<summary><code>privacy_policy_url</code> — string — URL to privacy policy.</summary>
+
+**Optional.** Presented to users during service account registration.
+
+**Sources:** [mcp_tool_definitions.md](../specs/mcp_tool_definitions.md)
+</details>
+
+<details>
+<summary><code>supported_jurisdictions</code> — array of strings — ISO 3166-1 alpha-2 codes where service operates.</summary>
+
+**Optional.** Distinct from node-level `jurisdictions`. This is the service's geographic scope, not the Gateway's.
+
+**Sources:** [mcp_tool_definitions.md](../specs/mcp_tool_definitions.md)
+</details>
+
+<details>
+<summary><code>supported_languages</code> — array of strings — BCP 47 language tags supported by service.</summary>
+
+**Optional.** Used by agents to select appropriate locale for interactions.
+
+**Sources:** [mcp_tool_definitions.md](../specs/mcp_tool_definitions.md)
+</details>
+
+<details>
+<summary><code>minimum_attestation_level</code> — string — Service-wide minimum attestation floor.</summary>
+
+**Required.** The lowest acceptable OOB method for any interaction with this service. Expressed as an OOB method name (e.g., `session_only`, `device_signature`). The Gateway's policy engine ensures `attestation_level_required` never falls below this value. The Guardian must enforce at least this level.
+
+**Sources:** [mcp_tool_definitions.md](../specs/mcp_tool_definitions.md), [gateway_role.md](../specs/gateway_role.md), [gateway_infrastructure.md](../specs/gateway_infrastructure.md) (D1 services), [guardian_infrastructure.md](../specs/guardian_infrastructure.md) (D1 service_accounts), [gateway_policy_evaluation_engine.md](../specs/gateway_policy_evaluation_engine.md)
+
+**Related:** `attestation_level_required`, `supported_oob_methods`
+</details>
+
+<details>
+<summary><code>supported_oob_methods</code> — array of strings — OOB methods the service/gateway can work with.</summary>
+
+**Required.** Published in the manifest. The Guardian reads this and matches against its own `oob_auth_methods` to find compatible methods. **Distinct from** `oob_auth_methods` (Guardian-side). `supported_oob_methods` is service-owned; `oob_auth_methods` is Guardian-owned.
+
+**Sources:** [mcp_tool_definitions.md](../specs/mcp_tool_definitions.md), [gateway_role.md](../specs/gateway_role.md), [gateway_infrastructure.md](../specs/gateway_infrastructure.md) (D1 services), [guardian_infrastructure.md](../specs/guardian_infrastructure.md) (D1 service_accounts)
+
+**Related:** `oob_auth_methods`, `minimum_attestation_level`
+</details>
+
+<details>
+<summary><code>supports_human_auth</code> — boolean — Whether the service accepts human (non-agentic) authentication.</summary>
+
+**Optional.** When true, the service accepts UNS-signed tokens from human users authenticating directly (not through an agent). Same attestation framework applies. Default: false.
+
+**Sources:** [mcp_tool_definitions.md](../specs/mcp_tool_definitions.md), [gateway_infrastructure.md](../specs/gateway_infrastructure.md) (D1 services), [guardian_infrastructure.md](../specs/guardian_infrastructure.md) (D1 service_accounts)
+</details>
+
+---
+
+### 4.4 Guardian Variables
+
+Variables owned by or specific to the Guardian node.
+
+<details>
+<summary><code>guardian_registration_id</code> — string — Guardian's internal identifier for a user-service relationship.</summary>
+
+**Required.** Created by the Guardian during service account registration via `register_service_account`. Scoped per-service. This is the Guardian's internal tracking identifier — it is never exposed to the service or included in the receipt. The Guardian uses it to look up cached manifests, user rules, and the associated `service_account_id` for a given service relationship.
+
+**Sources:** [guardian_role.md](../specs/guardian_role.md), [guardian_infrastructure.md](../specs/guardian_infrastructure.md) (D1 service_accounts), [guardian_mcp_tool_definitions.md](../specs/guardian_mcp_tool_definitions.md)
+</details>
+
+<details>
+<summary><code>service_account_id</code> — string — The service's own account identifier for a user, hashed and opaque.</summary>
+
+**Required in receipts.** Created by the service on first successful authentication (not during registration). The service MUST hash its internal account ID before returning it — `service_account_id` is a contractual non-reversible value. Returned by the service to the Gateway via callback after each handshake. Included in every receipt for account confirmation. The Guardian stores it (learned from the first completed receipt) and the agent uses it on subsequent handshakes to identify the account. No party other than the service can resolve the hash to an internal account. **Distinct from** `guardian_registration_id` (Guardian-internal).
+
+**Sources:** [guardian_role.md](../specs/guardian_role.md), [gateway_role.md](../specs/gateway_role.md), [receipt_format_and_assembly_specification.md](../specs/receipt_format_and_assembly_specification.md), [guardian_infrastructure.md](../specs/guardian_infrastructure.md) (D1 service_accounts, receipts), [gateway_infrastructure.md](../specs/gateway_infrastructure.md) (D1 receipts)
+</details>
+
+<details>
+<summary><code>oob_auth_methods</code> — array of strings — OOB methods the Guardian can actually perform.</summary>
+
+**Required.** The Guardian's capability set (e.g., `["device_signature", "totp", "email_confirmation"]`). Matched against `supported_oob_methods` from the service manifest. **Distinct from** `supported_oob_methods` (service-side).
+
+**Sources:** [guardian_role.md](../specs/guardian_role.md), [guardian_infrastructure.md](../specs/guardian_infrastructure.md), [guardian_policy_evaluation_engine.md](../specs/guardian_policy_evaluation_engine.md)
+
+**Related:** `supported_oob_methods`
+</details>
+
+<details>
+<summary><code>effective_attestation_level</code> — string — Computed highest attestation level from all inputs.</summary>
+
+**Internal (not in receipt).** The Guardian's policy engine computes this from `attestation_level_required` (Gateway), `minimum_attestation_level` (manifest), and any user rule overrides. It determines which OOB method the Guardian must perform.
+
+**Sources:** [guardian_policy_evaluation_engine.md](../specs/guardian_policy_evaluation_engine.md)
+
+**Related:** `attestation_level_required`, `attestation_level_provided`, `attestation_level_override`
+</details>
+
+<details>
+<summary><code>rejection_reason</code> — string — Human-readable reason for a registration or request rejection.</summary>
+
+**Optional.** Present in the `register_service_account` response when `registration_status` is `rejected`. Explains why the Guardian refused the registration (e.g., manifest verification failed, user denied, policy violation).
+
+**Sources:** [guardian_mcp_tool_definitions.md](../specs/guardian_mcp_tool_definitions.md) (section 3.1)
+</details>
+
+<details>
+<summary><code>request_context</code> — object — Unsigned arbitrary metadata describing the authenticated action or resource.</summary>
+
+**Optional.** Provided by the agent in `get_uns_challenge` and passed through the entire handshake. Contains service-defined key-value pairs (e.g., `feature`, `action`, `amount`, `currency`, `jurisdiction`). Allows the Guardian to evaluate user delegation rules against the specific request context. Used by services for dynamic attestation evaluation — services match these fields against their registered policy rules to determine per-request `attestation_level_required`.
+
+**Key Characteristics:**
+- **Unsigned.** NOT included in any signature's canonical serialization (intentionally unsigned). The agent can pass arbitrary `request_context` without cryptographic endorsement.
+- **Owner.** Provided by the agent; passed through by Gateway and Guardian.
+- **Service-defined schema.** Services define their own expected keys. UNS places no constraints on structure or field names.
+- **Guardian use.** The Guardian MAY use `request_context` to evaluate its user delegation rules, but MUST NOT rely on it for security-critical decisions. The signed `attestation_level_required` and `minimum_attestation_level` are the authoritative security floors.
+- **Audit.** Preserved in the receipt so the user can see what the handshake was for.
+
+**Common Fields (examples, not exhaustive):**
+- `feature` (string) — The specific service feature or action (e.g., "wire_transfer", "account_update")
+- `action` (string) — Semantically identical to feature; services use one or the other
+- `amount` (number) — Monetary or resource quantity
+- `currency` (string) — ISO 4217 currency code (e.g., "USD", "EUR")
+- `jurisdiction` (string) — Where the action is being performed
+- `recipient` (string) — Account, email, or identifier of the recipient
+- `risk_score` (number) — Internal service risk rating (0-100)
+
+**Example:**
+```json
+{
+  "request_context": {
+    "feature": "wire_transfer",
+    "action": "initiate",
+    "amount": 25000,
+    "currency": "USD",
+    "jurisdiction": "US",
+    "recipient": "checking_account_789"
+  }
+}
+```
+
+**Sources:** [protocol.md](../docs/protocol.md) (section 2, steps 1-3, and section 2.1 canonical message sequence), [mcp_tool_definitions.md](../specs/mcp_tool_definitions.md) (section 2.1 `get_uns_challenge` input), [guardian_mcp_tool_definitions.md](../specs/guardian_mcp_tool_definitions.md) (sections 3.2, sign_token_request input and output), [gateway_policy_evaluation_engine.md](../specs/gateway_policy_evaluation_engine.md), [receipt_format_and_assembly_specification.md](../specs/receipt_format_and_assembly_specification.md)
+
+**Related:** `attestation_level_required`, `applicable_rule`, `gateway_policy_evaluation_engine`
+</details>
+
+<details>
+<summary><code>manifest_changed</code> — boolean — Whether a re-fetched manifest differs from the cached version.</summary>
+
+**Required in `refetch_manifest` response.** True if any field in the manifest changed since the Guardian last cached it.
+
+**Sources:** [guardian_mcp_tool_definitions.md](../specs/guardian_mcp_tool_definitions.md) (section 3.3)
+</details>
+
+<details>
+<summary><code>changes_detected</code> — array of strings — List of manifest fields that changed.</summary>
+
+**Optional.** Present when `manifest_changed` is true. Lists the specific field names that differ (e.g., `["minimum_attestation_level", "supported_oob_methods"]`).
+
+**Sources:** [guardian_mcp_tool_definitions.md](../specs/guardian_mcp_tool_definitions.md) (section 3.3)
+</details>
+
+<details>
+<summary><code>attestation_level_changed</code> — boolean — Whether `minimum_attestation_level` specifically changed.</summary>
+
+**Optional.** Present when `manifest_changed` is true. Flagged separately because changes to the attestation floor affect all future handshakes.
+
+**Sources:** [guardian_mcp_tool_definitions.md](../specs/guardian_mcp_tool_definitions.md) (section 3.3)
+</details>
+
+<details>
+<summary><code>manifest_version</code> — integer — Monotonically increasing version of a service manifest.</summary>
+
+**Required in manifest response.** Incremented on every policy change or manifest update. The Guardian stores this locally and uses it for change detection. If a handshake includes a `manifest_version` higher than the cached version, the Guardian must re-fetch before signing.
+
+**Sources:** [mcp_tool_definitions.md](../specs/mcp_tool_definitions.md) (section 2.3), [gateway_role.md](../specs/gateway_role.md) (section 3.4), [gateway_infrastructure.md](../specs/gateway_infrastructure.md) (D1 services)
+</details>
+
+<details>
+<summary><code>manifest_issued_at</code> — ISO 8601 timestamp — When the Gateway generated this manifest.</summary>
+
+**Required in manifest response.** UTC timestamp indicating when the manifest was created. Used by the Guardian to enforce manifest TTL: if `local_time - manifest_issued_at > 1 hour`, the cached manifest is stale and must be refreshed.
+
+**Sources:** [mcp_tool_definitions.md](../specs/mcp_tool_definitions.md) (section 2.3), [gateway_role.md](../specs/gateway_role.md) (section 3.4)
+</details>
+
+<details>
+<summary><code>manifest_signature</code> — string — Gateway's ECDSA signature over the manifest's canonical serialization.</summary>
+
+**Required in manifest response.** P-256 ECDSA signature (hex-encoded) covering all manifest fields except this signature field itself, serialized in alphabetical key order with no whitespace. Signed with the Gateway's institutional key registered at the Coordination Node. The Guardian verifies this signature using the Gateway's public key from the Coordination Node registry. Invalid signatures trigger `UNS_MANIFEST_SIGNATURE_INVALID`.
+
+**Sources:** [mcp_tool_definitions.md](../specs/mcp_tool_definitions.md) (section 2.3), [gateway_role.md](../specs/gateway_role.md) (section 3.4), [guardian_role.md](../specs/guardian_role.md) (section 3.3)
+</details>
+
+<details>
+<summary><code>max_session_duration_seconds</code> — integer — Service-declared maximum validity window for a single authentication, in seconds.</summary>
+
+**Optional in service manifest.** Default: 3600 (1 hour). Declared by the service in the manifest and enforced by the Gateway. If the Guardian also sets `max_auth_duration_seconds`, the effective duration is the minimum of the two. The Guardian computes `expires_at` from the effective duration and embeds it in the receipt extensions. If omitted from the manifest, no service-side duration constraint is applied.
+
+**Sources:** [mcp_tool_definitions.md](../specs/mcp_tool_definitions.md) (section 2.3), [guardian_role.md](../specs/guardian_role.md) (section 5.3)
+
+**Related:** `max_auth_duration_seconds`, `expires_at`, `minimum_attestation_level`
+</details>
+
+<details>
+<summary><code>compromise_detected_at</code> — ISO 8601 timestamp — When a key compromise was formally declared.</summary>
+
+**Required when key is revoked.** Recorded by the Coordination Node when a Guardian or Gateway declares a key compromise. Receipts issued after this timestamp are suspect and subject to forensic review. Receipts before this timestamp remain valid as historical authorization.
+
+**Sources:** [key_rotation_and_lifecycle_management.md](../specs/key_rotation_and_lifecycle_management.md) (sections 7.4-7.6)
+
+**Related:** `UNS_SUSPECT_SIGNATURE`, `key_revoked`
+</details>
+
+<details>
+<summary><code>cursor</code> — string — Pagination cursor for paginated queries.</summary>
+
+**Optional.** Opaque string from a previous response's `next_cursor`. Omit for the first page.
+
+**Sources:** [guardian_mcp_tool_definitions.md](../specs/guardian_mcp_tool_definitions.md) (section 3.5)
+</details>
+
+<details>
+<summary><code>next_cursor</code> — string — Pagination cursor for the next page of results.</summary>
+
+**Optional.** Null or absent if the current page is the last page. Pass as `cursor` in the next request.
+
+**Sources:** [guardian_mcp_tool_definitions.md](../specs/guardian_mcp_tool_definitions.md) (section 3.5)
+</details>
+
+<details>
+<summary><code>total_count</code> — integer — Total number of results matching a query.</summary>
+
+**Required in paginated responses.** The total count across all pages, not just the current page.
+
+**Sources:** [guardian_mcp_tool_definitions.md](../specs/guardian_mcp_tool_definitions.md) (section 3.5)
+</details>
+
+---
+
+### 4.4a Guardian-Internal Variables
+
+Variables used only within the Guardian's internal systems. These MUST NOT appear in any token, receipt, or inter-node communication due to privacy constraints.
+
+<details>
+<summary><code>user_id</code> — string — <strong>Guardian-internal.</strong> Primary key in the Guardian's user table.</summary>
+
+**Required (Guardian-internal only).** Identifies the user within the Guardian's internal database. Associated with an array of attestation methods and canonically a public key. The DID form is `owner_did` (`did:uns:owner:{uuid}`). The `did:uns:user:` / `did:uns:owner:` namespace is Guardian-internal and not registered with the Coordination Node (which only tracks `did:uns:gateway:` and `did:uns:guardian:`).
+
+**Privacy constraint:** MUST NOT appear in any token, receipt, or inter-node message. Exposure would enable cross-service user tracking.
+
+**Sources:** [oob_notification_protocol_specification.md](../specs/oob_notification_protocol_specification.md), [guardian_infrastructure.md](../specs/guardian_infrastructure.md)
+</details>
+
+<details>
+<summary><code>max_auth_duration_seconds</code> — integer — <strong>Per-rule attribute.</strong> How long a specific approval remains valid, in seconds.</summary>
+
+**Optional (defaults to 3600).** A field on each Guardian delegation rule, not a blanket per-service setting. Different rules can grant different validity windows: a $10 spend rule might allow 0 (single-use), a read-only rule might allow 604800 (1 week). A value of 0 means single-use — the authentication covers exactly one action. At signing time, the Guardian computes `expires_at = issued_at + min(matched_rule.max_auth_duration_seconds, manifest.max_session_duration_seconds)` and embeds it in the receipt's `extensions` object. Duration is bilateral: both Guardian and Gateway enforce their respective limits.
+
+**Sources:** [attestation_rule_schema.md](../specs/attestation_rule_schema.md) section 7.2, [guardian_role.md](../specs/guardian_role.md) section 5.3, [guardian_mcp_tool_definitions.md](../specs/guardian_mcp_tool_definitions.md) section 3.4
+
+**Related:** `expires_at`, `max_session_duration_seconds`, `issued_at`, `configure_rules`
+</details>
+
+<details>
+<summary><code>expires_at</code> — string (ISO 8601) — Timestamp after which the authentication is no longer valid.</summary>
+
+**Optional.** Computed by the Guardian as `issued_at + effective_duration`, where `effective_duration = min(max_auth_duration_seconds, max_session_duration_seconds)`. Embedded in the receipt's `extensions` object (unsigned metadata, excluded from guardian_sig canonical serialization per the forward-compatibility policy in specification.md section 1.4). The agent reads this value to know when to re-initiate a handshake. Both the Guardian and the Gateway enforce this — after `expires_at`, the authentication is considered expired and the agent must re-initiate a fresh handshake.
+
+**Sources:** [guardian_role.md](../specs/guardian_role.md), [receipt_format_and_assembly_specification.md](../specs/receipt_format_and_assembly_specification.md)
+
+**Related:** `max_auth_duration_seconds`, `max_session_duration_seconds`, `issued_at`, `extensions`
+</details>
+
+---
+
+### 4.5 Gateway Variables
+
+Variables owned by or specific to the Gateway node.
+
+<details>
+<summary><code>service_id</code> — string — Unique identifier for a service hosted by this Gateway.</summary>
+
+**Required.** Primary key in the Gateway's D1 `services` table. One Gateway can host many services.
+
+**Sources:** [gateway_infrastructure.md](../specs/gateway_infrastructure.md) (D1 services, service_rules)
+</details>
+
+<details>
+<summary><code>supported_services</code> — array of strings — Services hosted by this Gateway.</summary>
+
+**Required.** Published to the Coordination Node registry. Lists all services available through this Gateway.
+
+**Sources:** [gateway_role.md](../specs/gateway_role.md), [coordination_node_data_model.md](../specs/coordination_node_data_model.md)
+</details>
+
+<details>
+<summary><code>gateway_endpoint</code> — string — Gateway's API URL for external access.</summary>
+
+**Required.** The HTTPS endpoint where this Gateway is reachable. Published in the Coordination Node registry and returned in MCP challenge responses.
+
+**Sources:** [mcp_tool_definitions.md](../specs/mcp_tool_definitions.md), [coordination_node_data_model.md](../specs/coordination_node_data_model.md)
+
+**Related:** `endpoint_url` (generic node-level equivalent)
+</details>
+
+<details>
+<summary><code>service_callback_url</code> — string — Webhook URL registered by the service with the Gateway for post-handshake notification.</summary>
+
+**Conditional (required if `service_callback_method` is `webhook`).** The Gateway calls this URL after verifying the Guardian's signature during the trilateral handshake. The service responds with `service_account_id` (creating the account if this is a first-time user). Registered during service onboarding. Renamed from `callback_url` to align with cognitive naming framework (domain prefix `service_`).
+
+**Sources:** [gateway_role.md](../specs/gateway_role.md) section 4.3
+
+**Related:** `service_callback_method`, `service_callback_mcp_endpoint`, `service_callback_mcp_tool_name`
+</details>
+
+<details>
+<summary><code>service_callback_method</code> — string — How the Gateway notifies the service after handshake verification.</summary>
+
+**Required.** Either `webhook` or `mcp_tool`. Determines the callback mechanism. `webhook` uses a standard HTTP POST to `service_callback_url`. `mcp_tool` invokes an MCP tool at `service_callback_mcp_endpoint`. Renamed from `callback_method` to align with cognitive naming framework.
+
+**Sources:** [gateway_role.md](../specs/gateway_role.md) section 4.3
+</details>
+
+<details>
+<summary><code>service_callback_mcp_endpoint</code> — string — MCP endpoint URL for services using MCP-based callbacks.</summary>
+
+**Conditional (required if `service_callback_method` is `mcp_tool`).** For sophisticated services that expose their own MCP interface for Gateway callbacks. Renamed from `callback_mcp_endpoint` to align with cognitive naming framework.
+
+**Sources:** [gateway_role.md](../specs/gateway_role.md) section 4.3
+</details>
+
+<details>
+<summary><code>service_callback_mcp_tool_name</code> — string — MCP tool name to invoke for service callback.</summary>
+
+**Conditional (required if `service_callback_method` is `mcp_tool`).** The specific tool the Gateway invokes at the `service_callback_mcp_endpoint`. Renamed from `callback_mcp_tool_name` to align with cognitive naming framework.
+
+**Sources:** [gateway_role.md](../specs/gateway_role.md) section 4.3
+</details>
+
+<details>
+<summary><code>service_callback_secret</code> — string — Shared HMAC secret for Gateway-service callback authentication.</summary>
+
+**Required.** Established during service onboarding. Used to compute HMAC-SHA256 over the callback payload body. Sent in `X-UNS-Callback-Signature` HTTP header. Stored in the Gateway's secret manager (never in KV or D1). Renamed from `callback_secret` to align with cognitive naming framework.
+
+**Sources:** [gateway_role.md](../specs/gateway_role.md) section 4.3.8
+</details>
+
+<details>
+<summary><code>service_account_mappings</code> — D1 table — Gateway-side table tracking the immutable binding between <code>guardian_id</code> + <code>service_name</code> and <code>service_account_id</code>.</summary>
+
+**Gateway storage.** On first handshake, the Gateway records the `service_account_id` returned by the service callback, keyed by `guardian_id` + `service_name`. On subsequent handshakes, the Gateway validates that the service returns the same `service_account_id` — a mismatch triggers `UNS_SERVICE_ACCOUNT_MISMATCH`. Schema: `(guardian_id TEXT, service_name TEXT, service_account_id TEXT, first_seen_at TEXT, last_confirmed_at TEXT, PRIMARY KEY (guardian_id, service_name))`.
+
+**Sources:** [gateway_role.md](../specs/gateway_role.md) section 4.3.5a
+</details>
+
+---
+
+### 4.6 Receipt and Signature Variables
+
+Variables appearing in the completed trilateral receipt (the signed token retained by all three parties).
+
+<details>
+<summary><code>receipt_id</code> — string — Unique identifier for a completed receipt.</summary>
+
+**Required.** UUID v7 format. Primary key in D1 receipt tables for both Gateway and Guardian. Used for receipt lookups, dispute resolution, and audit trails.
+
+**Sources:** [receipt_format_and_assembly_specification.md](../specs/receipt_format_and_assembly_specification.md), [gateway_infrastructure.md](../specs/gateway_infrastructure.md) (D1 receipts), [guardian_infrastructure.md](../specs/guardian_infrastructure.md) (D1 receipts)
+
+**Note:** Was missing from the previous glossary (adversarial review T-MAJ-2).
+</details>
+
+<details>
+<summary><code>signatures</code> — object — Container for the three trilateral signatures.</summary>
+
+**Required.** Object containing `service_gateway_sig`, `gateway_sig`, and `guardian_sig`. All three are present in every completed receipt.
+
+**Sources:** [receipt_format_and_assembly_specification.md](../specs/receipt_format_and_assembly_specification.md)
+
+**Open issue:** Triple vs dual signature structure needs resolution (adversarial review P-CRIT-2).
+</details>
+
+<details>
+<summary><code>service_gateway_sig</code> — string — Service-side signature via the Gateway.</summary>
+
+**Required in receipt.** Hex-encoded signature. The Gateway signs on behalf of the service (the service trusts its Gateway).
+
+**Sources:** [receipt_format_and_assembly_specification.md](../specs/receipt_format_and_assembly_specification.md), [cryptographic_operations_specification.md](../specs/cryptographic_operations_specification.md)
+</details>
+
+<details>
+<summary><code>gateway_sig</code> — string — Gateway's independent signature on the receipt.</summary>
+
+**Required in receipt.** Hex-encoded ECDSA P-256 signature. The Gateway signs as an independent party in the trilateral handshake.
+
+**Sources:** [receipt_format_and_assembly_specification.md](../specs/receipt_format_and_assembly_specification.md), [cryptographic_operations_specification.md](../specs/cryptographic_operations_specification.md)
+</details>
+
+<details>
+<summary><code>guardian_sig</code> — string — Guardian's signature on the receipt (contains OOB proof).</summary>
+
+**Required in receipt.** Hex-encoded ECDSA P-256 signature. The Guardian signs as the user's trusted party. The OOB proof is embedded inside the Guardian's signed payload.
+
+**Sources:** [receipt_format_and_assembly_specification.md](../specs/receipt_format_and_assembly_specification.md), [cryptographic_operations_specification.md](../specs/cryptographic_operations_specification.md)
+</details>
+
+<details>
+<summary><code>receipt_json</code> — string (JSON) — Full serialized receipt stored in D1.</summary>
+
+**Required.** The complete trilateral receipt as a JSON string. Stored for archival and dispute resolution.
+
+**Sources:** [guardian_infrastructure.md](../specs/guardian_infrastructure.md) (D1 receipts), [gateway_infrastructure.md](../specs/gateway_infrastructure.md) (D1 receipts)
+</details>
+
+---
+
+### 4.7 Service Rule and Policy Variables
+
+Variables used in the Gateway's and Guardian's policy evaluation engines for per-request attestation decisions.
+
+<details>
+<summary><code>rule_type</code> — string — Category of attestation rule.</summary>
+
+**Required.** Classification for policy matching. Gateway values: `action`, `amount_threshold`, `jurisdiction`, `feature_category`, `time_based`, `default`. Guardian values: `attestation_override`, `pre_authorization`, `spending_threshold`.
+
+**Sources:** [gateway_infrastructure.md](../specs/gateway_infrastructure.md) (D1 service_rules), [guardian_infrastructure.md](../specs/guardian_infrastructure.md) (D1 user_rules)
+</details>
+
+<details>
+<summary><code>conditions</code> — string (JSON) — Rule matching criteria.</summary>
+
+**Required.** JSON-serialized object containing the conditions that trigger a rule (e.g., action name, amount threshold, jurisdiction, time window). Evaluated by the policy engine to determine if this rule applies to a given request.
+
+**Sources:** [gateway_infrastructure.md](../specs/gateway_infrastructure.md) (D1 service_rules), [guardian_infrastructure.md](../specs/guardian_infrastructure.md) (D1 user_rules)
+</details>
+
+<details>
+<summary><code>attestation_level_override</code> — string — User-configured attestation level override.</summary>
+
+**Optional.** In Guardian user rules, allows the user to raise the attestation requirement above the service's request. Must be >= `minimum_attestation_level`.
+
+**Sources:** [guardian_infrastructure.md](../specs/guardian_infrastructure.md) (D1 user_rules)
+</details>
+
+<details>
+<summary><code>pre_authorized</code> — integer (boolean) — Whether to skip OOB for matching requests.</summary>
+
+**Optional.** D1 integer flag (0/1). When 1, the Guardian signs without prompting the user for OOB, provided the request matches the rule's conditions. User-configured convenience setting.
+
+**Sources:** [guardian_infrastructure.md](../specs/guardian_infrastructure.md) (D1 user_rules)
+</details>
+
+<details>
+<summary><code>priority</code> — integer — Rule evaluation precedence.</summary>
+
+**Required.** Higher values are evaluated first. When multiple rules match a request, the highest-priority match wins.
+
+**Sources:** [gateway_infrastructure.md](../specs/gateway_infrastructure.md) (D1 service_rules), [guardian_infrastructure.md](../specs/guardian_infrastructure.md) (D1 user_rules)
+</details>
+
+<details>
+<summary><code>enabled</code> — integer (boolean) — Whether a rule is active.</summary>
+
+**Required.** D1 integer flag (0/1). Disabled rules are skipped during policy evaluation. Allows toggling rules without deleting them.
+
+**Sources:** [gateway_infrastructure.md](../specs/gateway_infrastructure.md) (D1 service_rules), [guardian_infrastructure.md](../specs/guardian_infrastructure.md) (D1 user_rules)
+</details>
+
+<details>
+<summary><code>rule_id</code> — string — Unique identifier for an attestation rule within a rule set.</summary>
+
+**Required.** snake_case, max 64 characters, pattern: `^[a-z][a-z0-9_]{0,63}$`. Must be unique within the rule set (service or Guardian). Reserved values: `default` (the implicit default rule when no other rule matches), `dynamic_override` (used in `applicable_rule` when a dynamic override was applied).
+
+**Sources:** [attestation_rule_schema.md](../specs/attestation_rule_schema.md) (sections 2.1, 7.2, 8)
+</details>
+
+<details>
+<summary><code>rule_set_version</code> — integer — Monotonically increasing version of a service's rule set.</summary>
+
+**Required in rule sets.** Starts at 1, incremented on any change to the rules array. Captured in the receipt via `applicable_rule` so auditors can verify which version of the rules was in effect. Null in `applicable_rule` for dynamic overrides (which are not part of the versioned set).
+
+**Sources:** [attestation_rule_schema.md](../specs/attestation_rule_schema.md) (sections 2.2, 8)
+</details>
+
+<details>
+<summary><code>condition_field</code> / <code>field</code> — string — The request context field a rule condition evaluates.</summary>
+
+**Required in conditions.** Standard fields: `action`, `amount`, `currency`, `feature`, `user_jurisdiction`, `service_jurisdiction`, `time_since_last_auth`. Services may define custom fields following snake_case convention.
+
+**Sources:** [attestation_rule_schema.md](../specs/attestation_rule_schema.md) (sections 2.1, 3.1)
+</details>
+
+<details>
+<summary><code>condition_operator</code> / <code>operator</code> — string — The comparison operation in a rule condition.</summary>
+
+**Required in conditions.** Enum: `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `in`, `not_in`, `exists`. Determines how the field value is compared against the condition's target value.
+
+**Sources:** [attestation_rule_schema.md](../specs/attestation_rule_schema.md) (sections 2.1, 3.2)
+</details>
+
+<details>
+<summary><code>condition_value</code> / <code>value</code> — any — The target value in a rule condition.</summary>
+
+**Required in conditions (except when operator is `exists`).** Type depends on operator: string or number for comparisons, array for `in`/`not_in`, boolean for `exists`.
+
+**Sources:** [attestation_rule_schema.md](../specs/attestation_rule_schema.md) (sections 2.1, 3.2)
+</details>
+
+<details>
+<summary><code>dynamic_override</code> — boolean — Flag indicating a per-request attestation override from the service.</summary>
+
+**Required in override objects, always `true`.** When present, the Gateway skips registered rule evaluation and uses the override's `attestation_level_required` directly (subject to floor enforcement).
+
+**Sources:** [attestation_rule_schema.md](../specs/attestation_rule_schema.md) (section 2.3), [gateway_policy_evaluation_engine.md](../specs/gateway_policy_evaluation_engine.md) (section 2.2)
+</details>
+
+<details>
+<summary><code>always_require_approval</code> — boolean — Guardian rule flag forcing human involvement.</summary>
+
+**Optional, default false.** When true on a Guardian rule, the Guardian always prompts the user for explicit approval even if the attestation requirement could be auto-satisfied by the agent. Forces `approval_source` to `user` in the receipt.
+
+**Sources:** [attestation_rule_schema.md](../specs/attestation_rule_schema.md) (section 7.2)
+</details>
+
+<details>
+<summary><code>daily_spending_limit</code> — object — Guardian rule field capping daily authorized spend.</summary>
+
+**Optional.** Contains `amount` (number) and `currency` (string, ISO 4217). If the cumulative authorized spend for a service would exceed this limit, the Guardian requires human approval regardless of other delegation rules.
+
+**Sources:** [attestation_rule_schema.md](../specs/attestation_rule_schema.md) (section 7.2)
+</details>
+
+<details>
+<summary><code>blocked</code> — boolean — Guardian rule flag blocking all service authentication.</summary>
+
+**Optional, default false.** When true, the Guardian refuses all authentication requests for the service. Reversible — the user can unblock later. The agent is notified when a service is blocked.
+
+**Sources:** [attestation_rule_schema.md](../specs/attestation_rule_schema.md) (sections 7.2, 7.4)
+</details>
+
+<details>
+<summary><code>revoked</code> — boolean — Guardian action permanently removing a service account.</summary>
+
+**Optional, default false.** When true, the Guardian permanently deletes the service account registration, cached manifest, and all associated Guardian rules. Irreversible — the agent must re-register from scratch. The agent is notified.
+
+**Sources:** [attestation_rule_schema.md](../specs/attestation_rule_schema.md) (sections 7.2, 7.4)
+</details>
+
+<details>
+<summary><code>approval_source</code> — string — Whether the Guardian's approval was automatic or human-involved.</summary>
+
+**Required in receipts.** Enum: `rule` (Guardian auto-approved per delegation policy, no human prompt) or `user` (human explicitly approved via OOB). Captures the provenance of the Guardian's signing decision.
+
+**Sources:** [attestation_rule_schema.md](../specs/attestation_rule_schema.md) (section 7.5)
+</details>
+
+<details>
+<summary><code>approval_rule_description</code> — string — Human-readable description of the approval decision.</summary>
+
+**Required in receipts.** If `approval_source` is `rule`: describes the delegation rule that allowed auto-approval (e.g., "Agent discretionary budget: auto-approve under $50/day"). If `approval_source` is `user`: contains the device used and timestamp of human approval (e.g., "Approved via iPhone 15 Pro at 2026-03-19T14:34:22Z").
+
+**Sources:** [attestation_rule_schema.md](../specs/attestation_rule_schema.md) (section 7.5)
+</details>
+
+---
+
+### 4.8 Coordination Node Registry Variables
+
+Variables stored in the Coordination Node's KV-backed registry and Merkle tree.
+
+<details>
+<summary><code>registered_at</code> — number — Unix timestamp (ms) of initial node registration.</summary>
+
+**Required.** Set once at registration time. Immutable.
+
+**Sources:** [coordination_node_data_model.md](../specs/coordination_node_data_model.md), [gateway_infrastructure.md](../specs/gateway_infrastructure.md) (D1), [guardian_infrastructure.md](../specs/guardian_infrastructure.md) (D1)
+</details>
+
+<details>
+<summary><code>last_updated</code> — number — Unix timestamp (ms) of last record modification.</summary>
+
+**Required.** Updated on any change to the node record (key rotation, status change, metadata update).
+
+**Sources:** [coordination_node_data_model.md](../specs/coordination_node_data_model.md), [gateway_infrastructure.md](../specs/gateway_infrastructure.md) (D1), [guardian_infrastructure.md](../specs/guardian_infrastructure.md) (D1)
+</details>
+
+<details>
+<summary><code>previous_keys</code> — array of objects — Historical key rotation records.</summary>
+
+**Optional.** Array of `{public_key, rotated_at, reason}` objects. Maintained for backward verification of receipts signed with older keys during transition windows.
+
+**Sources:** [coordination_node_data_model.md](../specs/coordination_node_data_model.md)
+</details>
+
+<details>
+<summary><code>merkle_leaf_hash</code> — string — SHA-256 hash of this node's leaf in the Merkle tree.</summary>
+
+**Required.** Computed from the canonical serialization of the node record. Used for inclusion proofs.
+
+**Sources:** [coordination_node_data_model.md](../specs/coordination_node_data_model.md)
+</details>
+
+<details>
+<summary><code>merkle_root</code> — string — Current Merkle tree root hash (SHA-256, hex).</summary>
+
+**Required.** The global registry integrity proof. Recomputed on every registration, revocation, or key rotation.
+
+**Sources:** [coordination_node_data_model.md](../specs/coordination_node_data_model.md)
+
+**Related:** `leaf_count`, `registry_version`, `computed_at`
+</details>
+
+<details>
+<summary><code>registry_version</code> — number — Monotonically increasing counter for registry modifications.</summary>
+
+**Required.** Incremented on every write operation. Used for consistency checks and stale-cache detection.
+
+**Sources:** [coordination_node_data_model.md](../specs/coordination_node_data_model.md)
+</details>
+
+<details>
+<summary><code>leaf_count</code> — number — Number of leaf nodes in the Merkle tree.</summary>
+
+**Required.** Total registered nodes (active + deprecated). Used for tree structure calculations.
+
+**Sources:** [coordination_node_data_model.md](../specs/coordination_node_data_model.md)
+</details>
+
+<details>
+<summary><code>computed_at</code> — number — Unix timestamp when the Merkle root was last computed.</summary>
+
+**Required.** Freshness indicator for the Merkle root.
+
+**Sources:** [coordination_node_data_model.md](../specs/coordination_node_data_model.md)
+</details>
+
+<details>
+<summary><code>root_public_key</code> — string — Coordination Node's Master Root Key (public).</summary>
+
+**Required.** Used to verify Coordination Node signatures on registry responses. Subject to its own rotation lifecycle.
+
+**Sources:** [coordination_node_data_model.md](../specs/coordination_node_data_model.md)
+</details>
+
+<details>
+<summary><code>signing_key_version</code> — number — Which root key version signed this response.</summary>
+
+**Required in lookup responses.** Allows verifiers to select the correct root public key during key rotation transitions.
+
+**Sources:** [coordination_node_data_model.md](../specs/coordination_node_data_model.md)
+</details>
+
+<details>
+<summary><code>valid_from</code> — timestamp — When a rotated key becomes active.</summary>
+
+**Required for key rotation.** ISO 8601 timestamp. During the transition window, both old and new keys are valid.
+
+**Sources:** [coordination_node_data_model.md](../specs/coordination_node_data_model.md), [key_rotation_and_lifecycle_management.md](../specs/key_rotation_and_lifecycle_management.md)
+</details>
+
+<details>
+<summary><code>valid_until</code> — timestamp — When an old key stops being accepted.</summary>
+
+**Required for key rotation.** ISO 8601 timestamp marking end of key validity. After this time, signatures using the old key are rejected.
+
+**Sources:** [coordination_node_data_model.md](../specs/coordination_node_data_model.md), [key_rotation_and_lifecycle_management.md](../specs/key_rotation_and_lifecycle_management.md)
+</details>
+
+<details>
+<summary><code>registered_by</code> — string — DID of entity that registered a node.</summary>
+
+**Required.** Governance audit trail. Records which administrator or governance body approved a Gateway or Guardian registration.
+
+**Sources:** [coordination_node_data_model.md](../specs/coordination_node_data_model.md)
+</details>
+
+<details>
+<summary><code>leaf_index</code> — integer — Position of node's leaf in Merkle tree.</summary>
+
+**Required.** Zero-indexed position in the Coordination Node's Merkle tree. Used with `leaf_hash` and `merkle_root` for inclusion proofs.
+
+**Sources:** [coordination_node_data_model.md](../specs/coordination_node_data_model.md)
+</details>
+
+<details>
+<summary><code>leaf_hash</code> — string — SHA-256 hash of the leaf at this position.</summary>
+
+**Required.** Hash of the node's registration data at `leaf_index`. Used in Merkle inclusion proofs.
+
+**Sources:** [coordination_node_data_model.md](../specs/coordination_node_data_model.md)
+
+**Related:** `merkle_leaf_hash`, `merkle_root`, `leaf_index`
+</details>
+
+<details>
+<summary><code>published_at</code> — timestamp — When a root key version was published.</summary>
+
+**Required.** ISO 8601 timestamp. Records when the Coordination Node made a new signing key version available.
+
+**Sources:** [coordination_node_data_model.md](../specs/coordination_node_data_model.md)
+</details>
+
+<details>
+<summary><code>signed_at</code> — timestamp — When a coordination transaction was signed.</summary>
+
+**Required.** ISO 8601 timestamp recorded by the Coordination Node at signing time.
+
+**Sources:** [coordination_node_data_model.md](../specs/coordination_node_data_model.md)
+</details>
+
+<details>
+<summary><code>txn_hash</code> — string — Hash of a coordination transaction.</summary>
+
+**Required.** SHA-256 hash of the serialized coordination transaction. Used for integrity verification and audit trail.
+
+**Sources:** [coordination_node_data_model.md](../specs/coordination_node_data_model.md)
+</details>
+
+<details>
+<summary><code>coordination_node_did</code> — string — DID of the signing coordination node.</summary>
+
+**Required.** Identifies which Coordination Node signed a particular transaction or lookup response.
+
+**Sources:** [coordination_node_data_model.md](../specs/coordination_node_data_model.md)
+</details>
+
+---
+
+### 4.9 Revocation Variables
+
+<details>
+<summary><code>revoked_at</code> — number — Unix timestamp (ms) when revocation took effect.</summary>
+
+**Required for revoked nodes.** Set when a revocation is processed.
+
+**Sources:** [coordination_node_data_model.md](../specs/coordination_node_data_model.md)
+</details>
+
+<details>
+<summary><code>revoked_by</code> — string — DID of entity that initiated revocation.</summary>
+
+**Required for revoked nodes.** Audit trail for who triggered the revocation.
+
+**Sources:** [coordination_node_data_model.md](../specs/coordination_node_data_model.md)
+</details>
+
+<details>
+<summary><code>reason</code> — string — Human-readable reason for revocation.</summary>
+
+**Required for revoked nodes.** Free text describing why the revocation was initiated.
+
+**Sources:** [coordination_node_data_model.md](../specs/coordination_node_data_model.md)
+</details>
+
+<details>
+<summary><code>grace_period_minutes</code> — number — Duration in minutes before revocation is enforced.</summary>
+
+**Optional.** Allows clients time to migrate. 0 means immediate revocation.
+
+**Sources:** [coordination_node_data_model.md](../specs/coordination_node_data_model.md)
+</details>
+
+---
+
+### 4.10 Device Binding and OOB Variables
+
+Variables used in device registration, OOB notification, and the OOB approval/rejection flow.
+
+<details>
+<summary><code>device_id</code> — string — Unique identifier for a registered OOB device.</summary>
+
+**Required.** Primary key in Guardian's D1 `devices` table. Identifies a user's phone, hardware key, or other OOB-capable device.
+
+**Sources:** [guardian_infrastructure.md](../specs/guardian_infrastructure.md) (D1 devices), [oob_notification_protocol_specification.md](../specs/oob_notification_protocol_specification.md), [device_binding_and_onboarding_ceremony.md](../docs/device_binding_and_onboarding_ceremony.md)
+</details>
+
+<details>
+<summary><code>device_name</code> — string — Human-readable name for the device.</summary>
+
+**Optional.** User-facing label (e.g., "iPhone 15", "YubiKey 5"). Shown in device management UI and OOB prompts.
+
+**Sources:** [guardian_infrastructure.md](../specs/guardian_infrastructure.md) (D1 devices)
+</details>
+
+<details>
+<summary><code>device_public_key</code> — string — Public key from a registered OOB device.</summary>
+
+**Required for device_signature OOB.** Used by the Guardian to verify device signatures during `device_signature` OOB authentication. Stored in the Guardian's D1; never exposed in tokens or receipts (privacy constraint).
+
+**Sources:** [guardian_infrastructure.md](../specs/guardian_infrastructure.md) (D1 devices), [device_binding_and_onboarding_ceremony.md](../docs/device_binding_and_onboarding_ceremony.md)
+</details>
+
+<details>
+<summary><code>device_type</code> — string — Category of OOB device.</summary>
+
+**Required.** One of: `mobile`, `desktop`, `hardware_key`. Determines available OOB methods and notification channels.
+
+**Sources:** [guardian_infrastructure.md](../specs/guardian_infrastructure.md) (D1 devices)
+</details>
+
+<details>
+<summary><code>txn_id</code> — string — Transaction identifier for an OOB request.</summary>
+
+**Required.** Unique per-OOB-request. Used by Durable Objects to coordinate the MCP-to-REST bridge: agent initiates via MCP, user approves/rejects via REST, DO correlates both using `txn_id`.
+
+**Sources:** [oob_notification_protocol_specification.md](../specs/oob_notification_protocol_specification.md), [device_binding_and_onboarding_ceremony.md](../docs/device_binding_and_onboarding_ceremony.md)
+</details>
+
+<details>
+<summary><code>display_text</code> — string — Text shown to the user in OOB prompts.</summary>
+
+**Required.** Human-readable description of what the user is being asked to approve (e.g., "Authorize booking at Acme Travel for $500").
+
+**Sources:** [oob_notification_protocol_specification.md](../specs/oob_notification_protocol_specification.md)
+</details>
+
+<details>
+<summary><code>push_token</code> — string — APNs or FCM token for push notifications.</summary>
+
+**Optional.** Used to send OOB notifications to the user's device. Stored in Guardian D1; refreshed on device check-in.
+
+**Sources:** [device_binding_and_onboarding_ceremony.md](../docs/device_binding_and_onboarding_ceremony.md)
+</details>
+
+<details>
+<summary><code>bind_id</code> — string — Binding ceremony identifier.</summary>
+
+**Required during device onboarding.** Unique ID for the device binding process. Used to correlate the QR code/NFC invitation with the device's registration response.
+
+**Sources:** [device_binding_and_onboarding_ceremony.md](../docs/device_binding_and_onboarding_ceremony.md)
+</details>
+
+<details>
+<summary><code>device_platform</code> — string — OS platform of a registered device.</summary>
+
+**Optional.** Finer granularity than `device_type`. Values: `ios`, `android`, etc. `device_type` captures category (mobile/desktop/hardware_key); `device_platform` captures the specific OS.
+
+**Sources:** [device_binding_and_onboarding_ceremony.md](../docs/device_binding_and_onboarding_ceremony.md)
+</details>
+
+<details>
+<summary><code>bound_at</code> — timestamp — When device binding ceremony completed.</summary>
+
+**Required.** ISO 8601 timestamp recorded in the device record upon successful binding.
+
+**Sources:** [device_binding_and_onboarding_ceremony.md](../docs/device_binding_and_onboarding_ceremony.md)
+</details>
+
+<details>
+<summary><code>last_seen_at</code> — timestamp — Last device check-in or signature activity.</summary>
+
+**Optional.** Updated on each device interaction. Used for staleness detection and device management.
+
+**Sources:** [device_binding_and_onboarding_ceremony.md](../docs/device_binding_and_onboarding_ceremony.md)
+</details>
+
+<details>
+<summary><code>revocation_reason</code> — string — Human-readable reason for device revocation.</summary>
+
+**Required on revocation.** Stored in the device record when a device is revoked. Distinct from bare `reason` in coordination node context.
+
+**Sources:** [device_binding_and_onboarding_ceremony.md](../docs/device_binding_and_onboarding_ceremony.md)
+</details>
+
+<details>
+<summary><code>signature_count</code> — integer — Cumulative signatures produced by this device.</summary>
+
+**Optional.** Running counter for audit and anomaly detection purposes.
+
+**Sources:** [device_binding_and_onboarding_ceremony.md](../docs/device_binding_and_onboarding_ceremony.md)
+</details>
+
+<details>
+<summary><code>push_failures</code> — integer — Consecutive failed push notification attempts.</summary>
+
+**Optional.** Used to detect unresponsive devices. May trigger fallback to alternative OOB methods after threshold.
+
+**Sources:** [device_binding_and_onboarding_ceremony.md](../docs/device_binding_and_onboarding_ceremony.md)
+</details>
+
+<details>
+<summary><code>attestation_verified</code> — boolean — Whether device hardware attestation was verified during binding.</summary>
+
+**Optional.** True if the Guardian verified hardware attestation (e.g., Apple DeviceCheck, Android SafetyNet) during the binding ceremony.
+
+**Sources:** [device_binding_and_onboarding_ceremony.md](../docs/device_binding_and_onboarding_ceremony.md)
+</details>
+
+<details>
+<summary><code>attestation_verified_at</code> — timestamp — When device attestation was last verified.</summary>
+
+**Optional.** ISO 8601 timestamp. May differ from `bound_at` if attestation is re-verified periodically.
+
+**Sources:** [device_binding_and_onboarding_ceremony.md](../docs/device_binding_and_onboarding_ceremony.md)
+</details>
+
+<details>
+<summary><code>max_attempts</code> — integer — Maximum allowed binding ceremony attempts before lockout.</summary>
+
+**Required.** Security control to prevent brute-force binding attacks.
+
+**Sources:** [device_binding_and_onboarding_ceremony.md](../docs/device_binding_and_onboarding_ceremony.md)
+</details>
+
+<details>
+<summary><code>failed_attempts</code> — integer — Number of failed binding attempts so far.</summary>
+
+**Required.** Counter incremented on each failed binding attempt. Reset on successful binding. Lockout triggered when `failed_attempts >= max_attempts`.
+
+**Sources:** [device_binding_and_onboarding_ceremony.md](../docs/device_binding_and_onboarding_ceremony.md)
+</details>
+
+<details>
+<summary><code>target_device_id</code> — string — Device being remotely revoked.</summary>
+
+**Required in remote revocation flow.** Identifies which device is being revoked when the revocation is initiated from a different device.
+
+**Sources:** [device_binding_and_onboarding_ceremony.md](../docs/device_binding_and_onboarding_ceremony.md)
+</details>
+
+<details>
+<summary><code>initiator_device_id</code> — string — Device initiating the remote revocation.</summary>
+
+**Required in remote revocation flow.** Identifies which device submitted the revocation request. Must be a different device than `target_device_id`.
+
+**Sources:** [device_binding_and_onboarding_ceremony.md](../docs/device_binding_and_onboarding_ceremony.md)
+</details>
+
+<details>
+<summary><code>owner_did</code> — string — <strong>Guardian-internal.</strong> DID of the user who owns a device.</summary>
+
+**Required.** Format: `did:uns:owner:{uuid}`. Distinct from `guardian_id` (the Guardian node's own DID). DID form of Guardian-internal `user_id`. Used as KV key prefix: `device:{owner_did}:{device_id}`. In single-user Guardians this is currently redundant but the schema supports future multi-tenant Guardians.
+
+**Privacy constraint:** MUST NOT appear in tokens, receipts, or inter-node messages.
+
+**Sources:** [device_binding_and_onboarding_ceremony.md](../docs/device_binding_and_onboarding_ceremony.md), [guardian_infrastructure.md](../specs/guardian_infrastructure.md)
+</details>
+
+---
+
+### 4.11 Cryptographic Operation Variables
+
+Variables used in key generation, signing, and verification operations.
+
+<details>
+<summary><code>challenge_payload</code> — string — JSON challenge to be signed.</summary>
+
+**Required.** The full JSON object that each party signs during the handshake. Canonicalized using JCS (JSON Canonicalization Scheme) before signing.
+
+**Sources:** [cryptographic_operations_specification.md](../specs/cryptographic_operations_specification.md), [coordination_node_data_model.md](../specs/coordination_node_data_model.md)
+</details>
+
+<details>
+<summary><code>oob_proof</code> — string — Opaque cryptographic proof of OOB authentication, embedded in Guardian's signed payload.</summary>
+
+**Required in receipt, null when `oob_method_used` is `session_only`.** An opaque, method-specific cryptographic proof that the Guardian performed OOB authentication. Always embedded inside the Guardian's signed payload (`guardian_sig`); neither Service nor Gateway can see the raw proof. Both parties trust the Guardian's cryptographic assertion that the attestation was performed at the claimed level.
+
+**Key Characteristics:**
+- **Owner.** Generated by the Guardian during OOB authentication.
+- **Opaque.** Service and Gateway have no knowledge of its content or structure. The exact format varies by method and is Guardian-internal.
+- **Type.** String (specific format depends on OOB method; see below).
+- **Signature inclusion.** Field 11 of 14 in `guardian_sig` canonical serialization (alphabetical position between `oob_method_used` and `service_account_id`).
+- **Method-dependent content:**
+  - **`session_only`:** null (no OOB performed; included as JSON `null` in receipt)
+  - **`device_signature`:** Hex-encoded ECDSA signature over the nonce, produced by the user's registered device keypair. The Guardian verifies this signature before including it as proof.
+  - **`totp`:** HMAC-SHA256 digest of `(TOTP code || nonce)`. NOT the raw TOTP code — only a cryptographic proof of code possession.
+  - **`biometric`:** Platform-specific attestation token (from device OS biometric API, e.g., WebAuthn assertion, iOS Secure Enclave, Android KeyStore). Opaque to all parties except the Guardian.
+  - **`email_confirmation`:**  HMAC-SHA256 digest of `(confirmation code || nonce)`. NOT the raw code — only proof of code possession.
+  - **`sms_otp`:** HMAC-SHA256 digest of `(SMS code || nonce)`. NOT the raw code — only proof of code possession.
+  - **`hardware_key`:** FIDO2/WebAuthn assertion signature (e.g., YubiKey response). Opaque authenticator response.
+
+**Security Constraints:**
+- **No raw secrets.** The Guardian MUST NOT include raw TOTP codes, SMS codes, or confirmation codes in the proof. Only cryptographic digests or signatures are acceptable.
+- **Device-signed.** For device signatures, the proof must be cryptographically signed by the registered device key, not just an attestation from the Guardian.
+- **Timing.** For time-sensitive methods (TOTP, SMS), the Guardian records a timestamp (`completed_at`) inside or alongside the proof for validation purposes.
+
+**Example Proofs (method-specific):**
+```
+device_signature: "hex-encoded-p256-ecdsa-signature" (128 hex chars)
+totp: "hmac-sha256-digest-of-code-and-nonce" (64 hex chars)
+biometric: "webauthn-assertion-response-json" (opaque JSON object)
+email_confirmation: "hmac-sha256-digest-of-code-and-nonce" (64 hex chars)
+hardware_key: "fido2-assertion-signature" (opaque)
+```
+
+**Serialization in Receipt:**
+The `oob_proof` value is serialized as a JSON string in the receipt. If the proof is complex (e.g., a WebAuthn assertion), it may be JSON-serialized and then included as a string value.
+
+**Sources:** [protocol.md](../docs/protocol.md) (section 2, step 4, and section 4.1 OOB methods), [guardian_role.md](../specs/guardian_role.md) (sections 4 and 5), [cryptographic_operations_specification.md](../specs/cryptographic_operations_specification.md) (section 7.7c, `guardian_sig` canonical serialization), [receipt_format_and_assembly_specification.md](../specs/receipt_format_and_assembly_specification.md) (section 3.3, Guardian payload assembly), [guardian_infrastructure.md](../specs/guardian_infrastructure.md) (OOB authentication flow)
+
+**Related:** `oob_method_used`, `attestation_level_provided`, `approval_source`, `approved_at`
+</details>
+
+<details>
+<summary><code>public_key_hex</code> — string — Hex-encoded public key.</summary>
+
+**Required.** Format-qualified variant of `public_key`. Used in cryptographic operation specs where the encoding format must be explicit.
+
+**Sources:** [cryptographic_operations_specification.md](../specs/cryptographic_operations_specification.md)
+</details>
+
+<details>
+<summary><code>private_key_hex</code> — string — Hex-encoded private key.</summary>
+
+**Required.** Format-qualified variant. Never stored in plaintext outside secure execution environments. Used in test vectors and key generation specs.
+
+**Sources:** [cryptographic_operations_specification.md](../specs/cryptographic_operations_specification.md)
+</details>
+
+<details>
+<summary><code>completed_at</code> — timestamp — When an OOB action completed.</summary>
+
+**Required on OOB completion.** ISO 8601 timestamp recorded when the user completes (approves or rejects) an OOB authentication request.
+
+**Sources:** [cryptographic_operations_specification.md](../specs/cryptographic_operations_specification.md), [oob_notification_protocol_specification.md](../specs/oob_notification_protocol_specification.md)
+</details>
+
+<details>
+<summary><code>verified_at</code> — timestamp — When attestation verification occurred.</summary>
+
+**Required.** ISO 8601 timestamp recorded by the Guardian when it verifies the OOB attestation and prepares to sign.
+
+**Sources:** [mcp_tool_definitions.md](../specs/mcp_tool_definitions.md)
+</details>
+
+---
+
+### 4.12 Infrastructure and D1 Variables
+
+Variables appearing in D1 table schemas, KV keys, and Cloudflare Workers configuration. These are storage-layer representations of protocol variables.
+
+<details>
+<summary><code>manifest_json</code> — string (JSON) — Full cached service manifest stored in D1.</summary>
+
+**Required.** Complete service manifest as a JSON string. Cached by both Gateway (services table) and Guardian (service_accounts table) for offline evaluation.
+
+**Sources:** [gateway_infrastructure.md](../specs/gateway_infrastructure.md) (D1 services), [guardian_infrastructure.md](../specs/guardian_infrastructure.md) (D1 service_accounts)
+</details>
+
+<details>
+<summary><code>manifest_version</code> — integer — Version number of cached manifest.</summary>
+
+**Required.** Incremented on manifest updates. Used for staleness detection and cache invalidation.
+
+**Sources:** [gateway_infrastructure.md](../specs/gateway_infrastructure.md) (D1 services), [guardian_infrastructure.md](../specs/guardian_infrastructure.md) (D1 service_accounts)
+</details>
+
+<details>
+<summary><code>created_at</code> — integer/datetime — Timestamp when record was created.</summary>
+
+**Required.** Appears in multiple D1 tables and the Coordination Node audit log. Format varies: Unix timestamp in D1, `DATETIME DEFAULT CURRENT_TIMESTAMP` in audit log.
+
+**Sources:** [gateway_infrastructure.md](../specs/gateway_infrastructure.md) (D1), [guardian_infrastructure.md](../specs/guardian_infrastructure.md) (D1), [coordination_node_infrastructure.md](../specs/coordination_node_infrastructure.md) (D1 audit_log)
+</details>
+
+<details>
+<summary><code>expires_at</code> — integer/string — Expiration timestamp for time-limited records.</summary>
+
+**Context-dependent.** Unix timestamp in D1 receipt tables (retention cleanup), ISO 8601 in policy schemas. Also used in Coordination Node key rotation.
+
+**Sources:** [gateway_infrastructure.md](../specs/gateway_infrastructure.md) (D1 receipts), [coordination_node_data_model.md](../specs/coordination_node_data_model.md), [phase_1_guardian_policy_schema.md](../specs/phase_1_guardian_policy_schema.md)
+</details>
+
+<details>
+<summary><code>encrypted_secret</code> — string — TOTP secret encrypted at rest.</summary>
+
+**Required for TOTP OOB.** Encrypted using AES-256-GCM. Stored in Guardian's D1 `totp_secrets` table. Never exposed in plaintext outside the Guardian's execution environment.
+
+**Sources:** [guardian_infrastructure.md](../specs/guardian_infrastructure.md) (D1 totp_secrets)
+</details>
+
+<details>
+<summary><code>event_type</code> — string — Type of audit event in the Coordination Node.</summary>
+
+**Required.** One of: `REGISTRATION`, `REVOCATION`, `KEY_ROTATION`, `ADMIN_ACTION`. Used in D1 audit log.
+
+**Sources:** [coordination_node_data_model.md](../specs/coordination_node_data_model.md), [coordination_node_infrastructure.md](../specs/coordination_node_infrastructure.md) (D1 audit_log)
+</details>
+
+<details>
+<summary><code>last_used_at</code> — timestamp — When a device was last used for signing.</summary>
+
+**Optional.** Tracked in Guardian D1 `devices` table. Used for device activity monitoring and staleness detection.
+
+**Sources:** [guardian_infrastructure.md](../specs/guardian_infrastructure.md) (D1 devices)
+</details>
+
+<details>
+<summary><code>algorithm</code> — string — TOTP algorithm.</summary>
+
+**Required for TOTP OOB.** Hash algorithm used in TOTP generation (e.g., `SHA-1`, `SHA-256`). Stored in Guardian's D1 `totp_secrets` table.
+
+**Sources:** [guardian_infrastructure.md](../specs/guardian_infrastructure.md) (D1 totp_secrets)
+</details>
+
+<details>
+<summary><code>digits</code> — integer — TOTP output code length.</summary>
+
+**Required for TOTP OOB.** Number of digits in the TOTP code (typically 6 or 8). Stored in Guardian's D1 `totp_secrets` table.
+
+**Sources:** [guardian_infrastructure.md](../specs/guardian_infrastructure.md) (D1 totp_secrets)
+</details>
+
+<details>
+<summary><code>period</code> — integer — TOTP time step in seconds.</summary>
+
+**Required for TOTP OOB.** Duration of each TOTP code (typically 30 seconds). Stored in Guardian's D1 `totp_secrets` table.
+
+**Sources:** [guardian_infrastructure.md](../specs/guardian_infrastructure.md) (D1 totp_secrets)
+</details>
+
+---
+
+### 4.13 MCP Challenge Response Variables
+
+Variables specific to the Gateway's `get_uns_challenge` and `get_uns_status` MCP tool responses.
+
+<details>
+<summary><code>expires_in</code> — number — Seconds until the challenge nonce expires.</summary>
+
+**Required.** Default 300 (5 minutes). Returned in the `get_uns_challenge` response so the agent knows the time budget for completing the handshake.
+
+**Sources:** [mcp_tool_definitions.md](../specs/mcp_tool_definitions.md)
+</details>
+
+<details>
+<summary><code>supported_attestation_levels</code> — array of strings — OOB methods this Gateway supports.</summary>
+
+**Required in challenge response.** Returned by `get_uns_challenge` so the agent can inform the Guardian which methods are acceptable.
+
+**Sources:** [mcp_tool_definitions.md](../specs/mcp_tool_definitions.md)
+
+**Related:** `supported_oob_methods` (same concept, manifest context)
+</details>
+
+<details>
+<summary><code>supported_curves</code> — array of strings — Cryptographic curves supported by Gateway.</summary>
+
+**Required in challenge response.** Currently `["secp256r1"]` (P-256). Returned for future algorithm negotiation.
+
+**Sources:** [mcp_tool_definitions.md](../specs/mcp_tool_definitions.md)
+</details>
+
+<details>
+<summary><code>gateway_name</code> — string — Human-readable name of the Gateway.</summary>
+
+**Required in status response.** Returned by `get_uns_status` for display purposes.
+
+**Sources:** [mcp_tool_definitions.md](../specs/mcp_tool_definitions.md)
+</details>
+
+<details>
+<summary><code>registration_status</code> — string — Gateway's registration status.</summary>
+
+**Required in status response.** One of: `active`, `pending`, `suspended`, `revoked`. Returned by `get_uns_status`.
+
+**Sources:** [mcp_tool_definitions.md](../specs/mcp_tool_definitions.md)
+
+**Note:** Overlaps with `status` but has additional values (`pending`, `suspended`, `revoked`). Reconciliation needed.
+</details>
+
+<details>
+<summary><code>coordination_node</code> — string — DID of the Coordination Node that registered this Gateway.</summary>
+
+**Required in status response.** Returned by `get_uns_status`. Allows agents to verify Gateway registration.
+
+**Sources:** [mcp_tool_definitions.md](../specs/mcp_tool_definitions.md)
+</details>
+
+<details>
+<summary><code>certified_until</code> — string — ISO 8601 timestamp of Gateway certification expiration.</summary>
+
+**Required in status response.** Returned by `get_uns_status`. Agents and Guardians can check certification freshness.
+
+**Sources:** [mcp_tool_definitions.md](../specs/mcp_tool_definitions.md)
+</details>
+
+<details>
+<summary><code>requires_attestation</code> — boolean — Whether an MCP tool requires UNS attestation.</summary>
+
+**Required.** Per-tool flag in the Gateway's MCP tool registration. When true, the tool invocation must include a valid UNS receipt.
+
+**Sources:** [mcp_tool_definitions.md](../specs/mcp_tool_definitions.md)
+</details>
+
+<details>
+<summary><code>supported_tools</code> — array of objects — MCP tools exposed by a Gateway.</summary>
+
+**Required.** List of tools the Gateway makes available via MCP, including standard UNS tools and service-specific tools.
+
+**Sources:** [mcp_tool_definitions.md](../specs/mcp_tool_definitions.md)
+</details>
+
+<details>
+<summary><code>tool_name</code> — string — Name of the specific MCP tool invoked.</summary>
+
+**Required.** Identifies which MCP tool was called. Used in request context and audit logging.
+
+**Sources:** [mcp_tool_definitions.md](../specs/mcp_tool_definitions.md)
+</details>
+
+<details>
+<summary><code>result_hash</code> — string — Hash of the tool execution result.</summary>
+
+**Optional.** SHA-256 hash of the MCP tool execution result. Embedded in the receipt for non-repudiation of the specific action authorized.
+
+**Sources:** [mcp_tool_definitions.md](../specs/mcp_tool_definitions.md)
+</details>
+
+---
+
+### 4.14 Phase 1 Policy Schema Variables
+
+Variables specific to the Phase 1 Guardian policy JSON schema.
+
+<details>
+<summary><code>policy_id</code> — string — Unique identifier for a policy manifest.</summary>
+
+**Required.** Format: `pol_{id}_{description}` (e.g., `pol_77281_travel`). Identifies a complete policy document containing one or more rules.
+
+**Sources:** [phase_1_guardian_policy_schema.md](../specs/phase_1_guardian_policy_schema.md), [cryptographic_operations_specification.md](../specs/cryptographic_operations_specification.md)
+</details>
+
+<details>
+<summary><code>grantee</code> — string — DID of the agent granted access by a rule.</summary>
+
+**Required.** Identifies which agent this policy rule applies to.
+
+**Sources:** [phase_1_guardian_policy_schema.md](../specs/phase_1_guardian_policy_schema.md)
+</details>
+
+<details>
+<summary><code>target_gateways</code> — array of strings — DIDs of allowed Gateways for a rule.</summary>
+
+**Required.** Constrains which Gateways a rule applies to. `"*"` permits all registered Gateways.
+
+**Sources:** [phase_1_guardian_policy_schema.md](../specs/phase_1_guardian_policy_schema.md)
+</details>
+
+<details>
+<summary><code>actions</code> — array of strings — Permitted actions under a rule.</summary>
+
+**Required.** List of service actions this rule authorizes (e.g., `["reserve", "pay"]`).
+
+**Sources:** [phase_1_guardian_policy_schema.md](../specs/phase_1_guardian_policy_schema.md)
+</details>
+
+<details>
+<summary><code>max_amount</code> — object — Maximum transaction amount condition.</summary>
+
+**Optional.** Object with `value` (number) and `currency` (ISO 4217 string). Rule matches only if transaction amount is at or below this threshold.
+
+**Sources:** [phase_1_guardian_policy_schema.md](../specs/phase_1_guardian_policy_schema.md)
+</details>
+
+---
+
+### 4.14a Error Response Variables
+
+Variables used in the standard UNS error response format.
+
+<details>
+<summary><code>code</code> — string — UNS error code.</summary>
+
+**Required.** Protocol-level error identifier (e.g., `UNS_ATTESTATION_LEVEL_MISMATCH`, `UNS_NONCE_EXPIRED`). Matches the canonical error codes in the error code catalog.
+
+**Sources:** [error_code_catalog_and_response_specification.md](../specs/error_code_catalog_and_response_specification.md)
+</details>
+
+<details>
+<summary><code>message</code> — string — Human-readable error message.</summary>
+
+**Required.** Descriptive text explaining the error. Intended for developers and debugging, not for end-user display.
+
+**Sources:** [error_code_catalog_and_response_specification.md](../specs/error_code_catalog_and_response_specification.md)
+</details>
+
+<details>
+<summary><code>http_status</code> — integer — HTTP status code for REST surface.</summary>
+
+**Required.** Standard HTTP status code (e.g., 400, 401, 403, 404, 500). Used by the operator REST API; MCP surface uses JSON-RPC error codes instead.
+
+**Sources:** [error_code_catalog_and_response_specification.md](../specs/error_code_catalog_and_response_specification.md)
+</details>
+
+<details>
+<summary><code>details</code> — object — Additional error context.</summary>
+
+**Optional.** Free-form object with error-specific information (e.g., `required_level`, `provided_level` for attestation mismatches).
+
+**Sources:** [error_code_catalog_and_response_specification.md](../specs/error_code_catalog_and_response_specification.md)
+</details>
+
+<details>
+<summary><code>retryable</code> — boolean — Whether the client should retry.</summary>
+
+**Required.** When true, the error is transient and the client should retry (possibly after a delay). When false, retrying with the same parameters will produce the same error.
+
+**Sources:** [error_code_catalog_and_response_specification.md](../specs/error_code_catalog_and_response_specification.md)
+</details>
+
+<details>
+<summary><code>after_seconds</code> — integer — Suggested retry delay.</summary>
+
+**Optional.** Only meaningful when `retryable` is true. Recommended number of seconds the client should wait before retrying.
+
+**Sources:** [error_code_catalog_and_response_specification.md](../specs/error_code_catalog_and_response_specification.md)
+</details>
+
+<details>
+<summary><code>request_id</code> — string — Unique identifier for the request.</summary>
+
+**Required.** Generated by the responding node. Used for debugging, support tickets, and audit log correlation.
+
+**Sources:** [error_code_catalog_and_response_specification.md](../specs/error_code_catalog_and_response_specification.md)
+</details>
+
+<details>
+<summary><code>UNS_SIGNATURE_INVALID</code> — error code — Cryptographic signature verification failed.</summary>
+
+**HTTP 401.** A signature in the handshake flow (Gateway signature on challenge, Guardian signature on response, or manifest signature) failed verification. The receiving party could not verify the signature using the expected public key. Not retryable — indicates a cryptographic integrity issue, key mismatch, or payload tampering. Service may trigger this if it validates receipt signatures.
+
+**Sources:** [error_code_catalog_and_response_specification.md](../specs/error_code_catalog_and_response_specification.md), [cryptographic_operations_specification.md](../specs/cryptographic_operations_specification.md)
+
+**Related:** `UNS_MANIFEST_SIGNATURE_INVALID`, `UNS_SUSPECT_SIGNATURE`, `manifest_signature`, `gateway_sig`, `guardian_sig`
+</details>
+
+<details>
+<summary><code>UNS_SERVICE_ACCOUNT_NOT_FOUND</code> — error code — The service could not find an account for the given <code>service_account_id</code>.</summary>
+
+**HTTP 404.** Returned by the Gateway when the Gateway-service callback fails because the service cannot locate the claimed account. Not retryable with the same `service_account_id` — the agent should investigate (account may have been deleted at the service, or the stored `service_account_id` may be stale).
+
+**Sources:** [mcp_tool_definitions.md](../specs/mcp_tool_definitions.md) section 2.4, [gateway_role.md](../specs/gateway_role.md) section 4.3
+</details>
+
+<details>
+<summary><code>UNS_SERVICE_CALLBACK_TIMEOUT</code> — error code — Service callback did not respond within the configured timeout window.</summary>
+
+**HTTP 503.** The Gateway invoked the service's callback endpoint but received no response within the timeout (default 10 seconds). Nonce is NOT consumed — the agent may retry `submit_signed_token` with the same payload. Retryable.
+
+**Sources:** [error_code_catalog_and_response_specification.md](../specs/error_code_catalog_and_response_specification.md), [gateway_role.md](../specs/gateway_role.md) section 4.3.6
+</details>
+
+<details>
+<summary><code>UNS_SERVICE_CALLBACK_ERROR</code> — error code — Service callback returned a server error or malformed response.</summary>
+
+**HTTP 502.** The service callback endpoint returned HTTP 5xx or an unparseable response. Nonce is NOT consumed — the agent may retry. Retryable.
+
+**Sources:** [error_code_catalog_and_response_specification.md](../specs/error_code_catalog_and_response_specification.md), [gateway_role.md](../specs/gateway_role.md) section 4.3.6
+</details>
+
+<details>
+<summary><code>UNS_SERVICE_CALLBACK_INVALID</code> — error code — Service deliberately rejected the authentication via callback.</summary>
+
+**HTTP 403.** The service returned HTTP 4xx, indicating a policy decision (e.g., user banned, account suspended). Nonce IS consumed. Not retryable.
+
+**Sources:** [error_code_catalog_and_response_specification.md](../specs/error_code_catalog_and_response_specification.md), [gateway_role.md](../specs/gateway_role.md) section 4.3.6
+</details>
+
+<details>
+<summary><code>UNS_SERVICE_ACCOUNT_MISMATCH</code> — error code — Service returned a different <code>service_account_id</code> than previously recorded.</summary>
+
+**HTTP 409.** On subsequent handshakes, the service must return the same `service_account_id` for the same user. A mismatch indicates a service bug, account migration, or security issue. Gateway rejects and logs as security incident. Not retryable.
+
+**Sources:** [error_code_catalog_and_response_specification.md](../specs/error_code_catalog_and_response_specification.md), [gateway_role.md](../specs/gateway_role.md) section 4.3.5a
+</details>
+
+<details>
+<summary><code>UNS_ACCOUNT_CREATION_RATE_LIMITED</code> — error code — Too many null-account handshakes for this Guardian + service pair.</summary>
+
+**HTTP 429.** Repeated first-handshake attempts (where `service_account_id` is null) from the same Guardian for the same service. Default limit: 3 per hour. Retryable after the rate limit window resets.
+
+**Sources:** [error_code_catalog_and_response_specification.md](../specs/error_code_catalog_and_response_specification.md), [gateway_role.md](../specs/gateway_role.md) section 4.3.8
+</details>
+
+<details>
+<summary><code>UNS_NONCE_EXPIRED</code> — error code — The nonce has exceeded its TTL (5 minutes) and is no longer valid.</summary>
+
+**HTTP 410 (Gone).** The nonce was valid when issued but has expired before the Guardian's signed response was submitted. Not retryable with the same nonce — the agent must re-initiate the handshake by calling `get_uns_challenge` again. Nonce is NOT consumed (it no longer exists in KV).
+
+**Sources:** [error_code_catalog_and_response_specification.md](../specs/error_code_catalog_and_response_specification.md), [gateway_infrastructure.md](../specs/gateway_infrastructure.md) section 4.4
+
+**Related:** `nonce`, `UNS_NONCE_REPLAY`
+</details>
+
+<details>
+<summary><code>UNS_SERVICE_NOT_REGISTERED</code> — error code — The requested service is not hosted by this Gateway.</summary>
+
+**HTTP 404.** The `service_name` in the request does not match any service registered with this Gateway. Not retryable against this Gateway — the agent should verify the `gateway_id` and `service_name` from the Guardian's cached manifest.
+
+**Sources:** [error_code_catalog_and_response_specification.md](../specs/error_code_catalog_and_response_specification.md), [gateway_policy_evaluation_engine.md](../specs/gateway_policy_evaluation_engine.md)
+
+**Related:** `service_name`, `gateway_id`
+</details>
+
+<details>
+<summary><code>UNS_MANIFEST_CHANGED</code> — error code — The service manifest has been updated since the Guardian last cached it.</summary>
+
+**HTTP 409 (Conflict).** The `manifest_version` in the Guardian's cached manifest does not match the current version at the Gateway. The Guardian should call `refetch_manifest` to update its cache before retrying. Retryable after manifest refresh.
+
+**Sources:** [error_code_catalog_and_response_specification.md](../specs/error_code_catalog_and_response_specification.md), [guardian_mcp_tool_definitions.md](../specs/guardian_mcp_tool_definitions.md) section 3.3
+
+**Related:** `manifest_version`, `manifest_issued_at`, `manifest_signature`
+</details>
+
+<details>
+<summary><code>UNS_DYNAMIC_OVERRIDE_BELOW_FLOOR</code> — error code — A dynamic attestation override attempted to set the requirement below the service's minimum.</summary>
+
+**HTTP 400 (Bad Request).** The service sent a dynamic override with an `attestation_level_required` that is weaker than the `minimum_attestation_level` declared in the service manifest. The Gateway rejects the override. Not retryable with the same override value — the service must send a valid attestation level at or above the floor.
+
+**Sources:** [error_code_catalog_and_response_specification.md](../specs/error_code_catalog_and_response_specification.md), [gateway_policy_evaluation_engine.md](../specs/gateway_policy_evaluation_engine.md)
+
+**Related:** `minimum_attestation_level`, `attestation_level_required`, `applicable_rule`
+</details>
+
+<details>
+<summary><code>UNS_GUARDIAN_UNAVAILABLE</code> — error code — The Guardian is unreachable or in maintenance mode.</summary>
+
+**HTTP 503 (Service Unavailable).** The Gateway cannot contact the Guardian, or the Coordination Node indicates the Guardian's status is `maintenance`. Returned by the Gateway when it detects the Guardian is temporarily unavailable. Nonce is NOT consumed. Retryable after waiting for the Guardian to recover.
+
+**Sources:** [error_code_catalog_and_response_specification.md](../specs/error_code_catalog_and_response_specification.md), [gateway_policy_evaluation_engine.md](../specs/gateway_policy_evaluation_engine.md) section 7
+
+**Related:** `guardian_id`, `endpoint_url`, `status`
+</details>
+
+<details>
+<summary><code>UNS_INTERNAL_ERROR</code> — error code — An unrecoverable internal infrastructure error occurred.</summary>
+
+**HTTP 500 (Internal Server Error).** Generic error returned by Gateway or Guardian when an internal failure prevents completing the handshake. Common causes: policy evaluation engine crash, database connectivity loss, malformed rule configuration, or unexpected exception. Nonce is NOT consumed (error occurred during processing without nonce consumption). Retryable with exponential backoff after waiting.
+
+**Sources:** [error_code_catalog_and_response_specification.md](../specs/error_code_catalog_and_response_specification.md), [guardian_policy_evaluation_engine.md](../specs/guardian_policy_evaluation_engine.md) section 7, [gateway_policy_evaluation_engine.md](../specs/gateway_policy_evaluation_engine.md) section 7
+
+**Related:** `UNS_STORAGE_UNAVAILABLE`, error handling best practices
+</details>
+
+<details>
+<summary><code>UNS_STORAGE_UNAVAILABLE</code> — error code — Database, KV store, or Durable Object is temporarily unreachable.</summary>
+
+**HTTP 503 (Service Unavailable).** Returned by Gateway or Guardian when D1, KV, or Durable Objects become temporarily unavailable (connection timeout, rate limit, backoff state). More specific than `UNS_INTERNAL_ERROR` when the cause is explicitly an infrastructure storage system. Nonce is NOT consumed (error prevented storage update). Retryable with exponential backoff.
+
+**Sources:** [error_code_catalog_and_response_specification.md](../specs/error_code_catalog_and_response_specification.md), [guardian_policy_evaluation_engine.md](../specs/guardian_policy_evaluation_engine.md) section 7, [gateway_policy_evaluation_engine.md](../specs/gateway_policy_evaluation_engine.md) section 7
+
+**Related:** `UNS_INTERNAL_ERROR`, `UNS_SERVICE_UNAVAILABLE`
+</details>
+
+---
+
+### 4.14b Handshake Token Variable
+
+<details>
+<summary><code>handshake_token</code> — string (JSON) — The progressively-enriched token during the trilateral handshake.</summary>
+
+**Required.** The JSON object that flows between Gateway and Guardian during the handshake. Each party adds its signed payload. Becomes a `receipt` once all three signatures are applied. Replaces informal `uns_auth_token` references in narrative docs.
+
+**Sources:** [protocol.md](protocol.md), [receipt_format_and_assembly_specification.md](../specs/receipt_format_and_assembly_specification.md)
+
+**Related:** `receipt_id`, `receipt_json`, `gateway_sig`, `guardian_sig`
+</details>
+
+---
+
+### 4.15 Naming Anomalies and Grandfathered Variables
+
+The following variables have naming patterns that deviate slightly from the cognitive framework but are retained for backward compatibility. These are documented here with notes on the preferred pattern for future similar variables.
+
+<details>
+<summary><strong>Anomaly 1: `supported_oob_methods` vs `oob_auth_methods` — Semantic Parallelism, Not Naming Parallelism</strong></summary>
+
+**Issue:** Both variables end in `_methods` (array of OOB methods) but belong to different domains (service-side vs Guardian-side). The naming is intentionally similar, but they are semantically distinct:
+- `supported_oob_methods` → domain prefix: `supported_*` (service capability declaration)
+- `oob_auth_methods` → domain prefix: `oob_*` (Guardian capability declaration)
+
+**Status:** GRANDFATHERED (intentional, not a defect). The distinction is documented in the glossary and specification.md Key Decisions. The cognitive framework explains why the names are similar but contextually different. Future parallel variables should follow this pattern.
+</details>
+
+
+<details>
+<summary><strong>Anomaly 3: `service_gateway_sig` — Compound Triple Ownership</strong></summary>
+
+**Issue:** This variable combines three ownership domains (`service_` + `gateway_` + signature) in a single name, which is unusual in the framework. The pattern is `[service]_[gateway]_[signature]` rather than the typical single-domain prefix pattern.
+
+**Status:** GRANDFATHERED (justified by protocol role). This signature is applied by the Gateway on behalf of the Service. The triple-ownership stem documents this trilateral relationship in the name itself. The cognitive framework accommodates this as a special case for compound ownership.
+
+**Preferred pattern forward:** For similar compound-ownership variables, prefix with the actor applying the signature/action, use the compound target, then the verb. Example: `gateway_on_behalf_of_service_signature` is verbose; the current form `service_gateway_sig` is more terse and acceptable.
+</details>
+
+<details>
+<summary><strong>Anomaly 4: `status` vs `registration_status` — Scope Collision</strong></summary>
+
+**Issue:** Both refer to operational state but have different enum values and scopes:
+- `status` → Coordination Node registry (active/maintenance/deprecated)
+- `registration_status` → MCP `get_uns_status` response (active/pending/suspended/revoked)
+
+These refer to different state machines and should have remained distinct. However, the naming is confusing because `registration_status` could be confused with `status`.
+
+**Status:** DOCUMENTED AS ANOMALY (requires explicit scope documentation, not a defect). The glossary specifies both variables with clear source-document anchors. The glossary note in `registration_status` explicitly calls out the overlap and references the reconciliation open question in section 4.15.
+
+**Preferred pattern forward:** For future state variables, include scope in the name if multiple contexts might use similar names. Example: `coordination_node_status` vs `gateway_registration_status` to remove ambiguity. Consider unifying under a single canonical variable for protocol stability.
+
+**Migration note (future work):** Once the Coordination Node specification is finalized, consider deprecating `registration_status` in favor of a unified `status` with expanded enum values, or explicitly rename to `gateway_status` for clarity.
+</details>
+
+<details>
+<summary><strong>Anomaly 5: `rule_type` — Overloaded Variable</strong></summary>
+
+**Issue:** `rule_type` is used by both the Gateway and Guardian policy engines but with different enum values:
+- Gateway: `action`, `amount_threshold`, `jurisdiction`, `feature_category`, `time_based`, `default`
+- Guardian: `attestation_override`, `pre_authorization`, `spending_threshold`
+
+This is documented in the glossary but could confuse developers reading schemas in isolation.
+
+**Status:** DOCUMENTED AS DESIGN CHOICE (not a defect, but requires careful engineering). The variable is intentionally dual-purpose, serving as a union of Gateway and Guardian rule classifications. The glossary clarifies the distinction. Code must handle or document which rule type set is expected in context.
+
+**Preferred pattern forward:** For future overloaded variables, create separate variables per domain (e.g., `gateway_rule_type` vs `guardian_rule_type`) rather than sharing. The current `rule_type` is grandfathered due to protocol stability.
+</details>
+
+---
+
+### 4.16 Open Questions
+
+The following items need resolution. They are tracked here rather than in HTML comments:
+
+1. **Guardian endpoint discovery:** Should the Coordination Node registry include a `guardian_endpoint` variable, or is Guardian discovery handled through a different mechanism? Currently the glossary only lists gateway-side variables for the Coordination Node registry.
+
+2. **`supports_human_auth` phasing:** Should this be a Phase 1 or Phase 2 variable? It was added based on the key decision that services may use UNS for human authentication.
+
+3. **`status` vs `registration_status` reconciliation:** The Coordination Node uses `status` (active/maintenance/deprecated) while MCP `get_uns_status` returns `registration_status` (active/pending/suspended/revoked). These should either be unified or explicitly documented as distinct variables with different scopes. See Anomaly 4 in section 4.15.
+
+---
+
+## 5. Cross-References
+
+- [MCP Tool Definitions](../specs/mcp_tool_definitions.md) — Authoritative schema for `get_service_manifest`, `get_uns_challenge`, `get_uns_status`.
+- [Receipt Format and Assembly](../specs/receipt_format_and_assembly_specification.md) — Receipt structure, signature fields, assembly sequence.
+- [Cryptographic Operations](../specs/cryptographic_operations_specification.md) — Key generation, signing, verification, serialization formats.
+- [Coordination Node Data Model](../specs/coordination_node_data_model.md) — Registry KV schema, Merkle tree, revocation, key rotation.
+- [Guardian Infrastructure](../specs/guardian_infrastructure.md) — D1 tables (service_accounts, user_rules, receipts, devices, totp_secrets), KV namespaces.
+- [Gateway Infrastructure](../specs/gateway_infrastructure.md) — D1 tables (services, service_rules, receipts), KV nonce tracking.
+- [Guardian Policy Evaluation Engine](../specs/guardian_policy_evaluation_engine.md) — Policy evaluation decision logic.
+- [Gateway Policy Evaluation Engine](../specs/gateway_policy_evaluation_engine.md) — Per-request attestation determination.
+- [Device Binding and Onboarding Ceremony](../docs/device_binding_and_onboarding_ceremony.md) — Device registration, QR/NFC binding flow.
+- [OOB Notification Protocol](../specs/oob_notification_protocol_specification.md) — OOB request/response, notification channels.
+- [Phase 1 Guardian Policy Schema](../specs/phase_1_guardian_policy_schema.md) — Phase 1 policy JSON schema.
+- [protocol.md](protocol.md) — Trilateral handshake flow, trust model, privacy constraints.
+- [architecture.md](architecture.md) — Component responsibilities and trust relationships.
+- [CLAUDE.md](../CLAUDE.md) — Documentation convention rules mandating glossary inclusion.
+
+---
+
+## 6. Automated Maintenance
+
+This glossary is maintained by a scheduled job that scans all specification files for schema variables not yet listed here. The job runs weekly and produces a diff report of missing or inconsistent entries. See the project's scheduled tasks for configuration.
